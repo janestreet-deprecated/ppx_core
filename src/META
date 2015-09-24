@@ -1,0 +1,8 @@
+version = "113.09.00"
+description = "Standard library for ppx rewriters"
+requires = "compiler-libs.common"
+archive(ppx_driver, byte          ) = "ppx_core.cma"
+archive(ppx_driver, native        ) = "ppx_core.cmxa"
+archive(ppx_driver, native, plugin) = "ppx_core.cmxs"
+exists_if = "ppx_core.cma"
+ppxopt(-ppx_driver) = "ppx_deriving,./ppx_core.cma"

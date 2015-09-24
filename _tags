@@ -1,0 +1,5 @@
+    <**/*.ml{,i}>: warn(-40)
+# OASIS_START
+# OASIS_STOP
+    # Workaround: oasis is not adding the -for-pack flag on generated files
+<src/*.ml>: for-pack(Ppx_core)
