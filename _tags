@@ -1,5 +1,46 @@
     <**/*.ml{,i}>: warn(-40)
 # OASIS_START
+# DO NOT EDIT (digest: 89891f9843fe9a7a846aaa650879c9f5)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library ppx_core
+"src/ppx_core.cmxs": use_ppx_core
+"src/ast_builder.cmx": for-pack(Ppx_core)
+"src/ast_builder_intf.cmx": for-pack(Ppx_core)
+"src/ast_pattern.cmx": for-pack(Ppx_core)
+"src/ast_pattern0.cmx": for-pack(Ppx_core)
+"src/ast_traverse.cmx": for-pack(Ppx_core)
+"src/attribute.cmx": for-pack(Ppx_core)
+"src/caller_id.cmx": for-pack(Ppx_core)
+"src/common.cmx": for-pack(Ppx_core)
+"src/extension.cmx": for-pack(Ppx_core)
+"src/name.cmx": for-pack(Ppx_core)
+"src/spellcheck.cmx": for-pack(Ppx_core)
+"src/std.cmx": for-pack(Ppx_core)
+<src/*.ml{,i,y}>: package(compiler-libs.common)
+# Executable gen
+"src/gen/gen.byte": package(compiler-libs.bytecomp)
+"src/gen/gen.byte": package(ppx_tools.metaquot)
+# Executable gen_ast_pattern
+"src/gen/gen_ast_pattern.byte": package(compiler-libs.bytecomp)
+"src/gen/gen_ast_pattern.byte": package(ppx_tools.metaquot)
+# Executable gen_ast_builder
+"src/gen/gen_ast_builder.byte": package(compiler-libs.bytecomp)
+"src/gen/gen_ast_builder.byte": package(ppx_tools.metaquot)
+<src/gen/*.ml{,i,y}>: package(compiler-libs.bytecomp)
+<src/gen/*.ml{,i,y}>: package(ppx_tools.metaquot)
 # OASIS_STOP
     # Workaround: oasis is not adding the -for-pack flag on generated files
 <src/*.ml>: for-pack(Ppx_core)

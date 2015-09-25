@@ -1,0 +1,22 @@
+# OASIS_START
+# DO NOT EDIT (digest: e81dedd50ab6db6be999b0ca88041547)
+Ast_builder
+Ast_builder_generated
+Ast_builder_intf
+Ast_pattern
+Ast_pattern0
+Ast_pattern_generated
+Ast_traverse
+Ast_traverse_fold
+Ast_traverse_fold_map
+Ast_traverse_iter
+Ast_traverse_map
+Ast_traverse_map_with_context
+Attribute
+Caller_id
+Common
+Extension
+Name
+Spellcheck
+Std
+# OASIS_STOP
