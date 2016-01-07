@@ -157,66 +157,69 @@ let assert_no_attributes ~path ~prefix =
   ]
 
 let gen_combinator_for_constructor ?wrapper path ~prefix cd =
-  let args =
-    List.mapi cd.cd_args ~f:(fun i _ -> sprintf "x%d" i)
-  in
-  let funcs =
-    List.mapi cd.cd_args ~f:(fun i _ -> sprintf "f%d" i)
-  in
-  let pat =
-    Pat.construct (Loc.mk (fqn_longident path cd.cd_id))
-      (match args with
-       | []  -> None
-       | [x] -> Some (pvar x)
-       | _   -> Some (Pat.tuple (List.map args ~f:pvar)))
-  in
-  let exp =
-    apply_parsers funcs (List.map args ~f:evar) cd.cd_args
-  in
-  let expected = without_prefix ~prefix (Ident.name cd.cd_id) in
-  let body =
-    [%expr
-      match x with
-      | [%p pat] -> ctx.matched <- ctx.matched + 1; [%e exp]
-      | _ -> fail loc [%e Exp.constant (Const_string (expected, None))]
-    ]
-  in
-  let body =
-    match wrapper with
-    | None -> body
-    | Some (path, prefix, has_attrs) ->
-      let body =
-        [%expr
-          let loc = [%e Exp.field (evar "x")
-                          (Loc.mk @@ fqn_longident' path (prefix ^ "loc"))]
-          in
-          let x = [%e Exp.field (evar "x")
-                        (Loc.mk @@ fqn_longident' path (prefix ^ "desc"))]
-          in
-          [%e body]
-        ]
-      in
-      if has_attrs then
-        [%expr
-          [%e assert_no_attributes ~path ~prefix];
-          [%e body]
-        ]
-      else
-        body
-  in
-  let body =
-    let loc =
-      match wrapper with
-      | None -> [%pat? loc]
-      | Some _ -> [%pat? _loc]
+  match cd.cd_args with
+  | Cstr_record _ -> failwith "Cstr_record not supported"
+  | Cstr_tuple cd_args ->
+    let args =
+      List.mapi cd_args ~f:(fun i _ -> sprintf "x%d" i)
     in
-    [%expr T (fun ctx [%p loc] x k -> [%e body])]
-  in
-  let body =
-    List.fold_right funcs ~init:body ~f:(fun func acc ->
-      [%expr fun (T [%p pvar func]) -> [%e acc]])
-  in
-  [%stri let [%p pvar (function_name_of_id ~prefix cd.cd_id)] = [%e body]]
+    let funcs =
+      List.mapi cd_args ~f:(fun i _ -> sprintf "f%d" i)
+    in
+    let pat =
+      Pat.construct (Loc.mk (fqn_longident path cd.cd_id))
+        (match args with
+         | []  -> None
+         | [x] -> Some (pvar x)
+         | _   -> Some (Pat.tuple (List.map args ~f:pvar)))
+    in
+    let exp =
+      apply_parsers funcs (List.map args ~f:evar) cd_args
+    in
+    let expected = without_prefix ~prefix (Ident.name cd.cd_id) in
+    let body =
+      [%expr
+        match x with
+        | [%p pat] -> ctx.matched <- ctx.matched + 1; [%e exp]
+        | _ -> fail loc [%e Exp.constant (PConst_string (expected, None))]
+      ]
+    in
+    let body =
+      match wrapper with
+      | None -> body
+      | Some (path, prefix, has_attrs) ->
+        let body =
+          [%expr
+            let loc = [%e Exp.field (evar "x")
+                            (Loc.mk @@ fqn_longident' path (prefix ^ "loc"))]
+            in
+            let x = [%e Exp.field (evar "x")
+                          (Loc.mk @@ fqn_longident' path (prefix ^ "desc"))]
+            in
+            [%e body]
+          ]
+        in
+        if has_attrs then
+          [%expr
+            [%e assert_no_attributes ~path ~prefix];
+            [%e body]
+          ]
+        else
+          body
+    in
+    let body =
+      let loc =
+        match wrapper with
+        | None -> [%pat? loc]
+        | Some _ -> [%pat? _loc]
+      in
+      [%expr T (fun ctx [%p loc] x k -> [%e body])]
+    in
+    let body =
+      List.fold_right funcs ~init:body ~f:(fun func acc ->
+        [%expr fun (T [%p pvar func]) -> [%e acc]])
+    in
+    [%stri let [%p pvar (function_name_of_id ~prefix cd.cd_id)] = [%e body]]
 ;;
 
 let gen_combinator_for_record path ~prefix ~has_attrs lds =
@@ -241,7 +244,7 @@ let gen_combinator_for_record path ~prefix ~has_attrs lds =
   let body = [%expr T (fun ctx loc x k -> [%e body])] in
   let body =
     List.fold_right funcs ~init:body ~f:(fun func acc ->
-      Exp.fun_ func None [%pat? T [%p pvar func]] acc)
+      Exp.fun_ (Labelled func) None [%pat? T [%p pvar func]] acc)
   in
   [%stri let [%p pvar (Common.function_name_of_path path)] = [%e body]]
 ;;

@@ -14,6 +14,9 @@ let white_list =
     ; "ocaml.doc"
     ; "ocaml.text"
     ; "nonrec"
+    ; "ocaml.noalloc"
+    ; "ocaml.unboxed"
+    ; "ocaml.untagged"
     ]
 ;;
 

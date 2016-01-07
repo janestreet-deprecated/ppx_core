@@ -20,6 +20,8 @@ let __ = T (fun ctx _loc x k -> incr_matched ctx; k x)
 
 let __' = T (fun ctx loc x k -> incr_matched ctx; k { Location. loc; txt = x })
 
+let drop = T (fun ctx _loc _ k -> incr_matched ctx; k)
+
 let cst ~to_string ?(equal=(=)) v = T (fun ctx loc x k ->
   if equal x v then begin
     incr_matched ctx;
@@ -77,6 +79,13 @@ let map' (T func) ~f = T (fun ctx loc x k -> func ctx loc x (f loc k))
 
 let ( >>| ) t f = map t ~f
 
+let map0 (T func) ~f = T (fun ctx loc x k -> func ctx loc x (           k  f     ))
+let map1 (T func) ~f = T (fun ctx loc x k -> func ctx loc x (fun a   -> k (f a  )))
+let map2 (T func) ~f = T (fun ctx loc x k -> func ctx loc x (fun a b -> k (f a b)))
+
+let alt_option some none =
+  alt (map1 some ~f:(fun x -> Some x)) (map0 none ~f:None)
+
 let many (T f) = T (fun ctx loc l k ->
   k (List.map l ~f:(fun x -> f ctx loc x (fun x -> x))))
 ;;
@@ -93,25 +102,37 @@ include Ast_pattern_generated
 
 let ( ^:: ) = cons
 
-let eint       t = pexp_constant (const_int t)
-let echar      t = pexp_constant (const_char t)
-let estring    t = pexp_constant (const_string t none)
-let efloat     t = pexp_constant (const_float t)
-let eint32     t = pexp_constant (const_int32 t)
-let eint64     t = pexp_constant (const_int64 t)
+let echar      t = pexp_constant (pconst_char   t     )
+let estring    t = pexp_constant (pconst_string t drop)
+let efloat     t = pexp_constant (pconst_float  t drop)
+
+let pchar      t = ppat_constant (pconst_char   t     )
+let pstring    t = ppat_constant (pconst_string t drop)
+let pfloat     t = ppat_constant (pconst_float  t drop)
+
+let int'       (T f) = T (fun ctx loc x k -> f ctx loc (int_of_string       x) k)
+let int32'     (T f) = T (fun ctx loc x k -> f ctx loc (Int32.of_string     x) k)
+let int64'     (T f) = T (fun ctx loc x k -> f ctx loc (Int64.of_string     x) k)
+let nativeint' (T f) = T (fun ctx loc x k -> f ctx loc (Nativeint.of_string x) k)
+
+let const_int       t = pconst_int (int'       t) none
+let const_int32     t = pconst_int (int32'     t) (some (char 'l'))
+let const_int64     t = pconst_int (int64'     t) (some (char 'L'))
+let const_nativeint t = pconst_int (nativeint' t) (some (char 'n'))
+
+let eint       t = pexp_constant (const_int       t)
+let eint32     t = pexp_constant (const_int32     t)
+let eint64     t = pexp_constant (const_int64     t)
 let enativeint t = pexp_constant (const_nativeint t)
 
-let pint       t = ppat_constant (const_int t)
-let pchar      t = ppat_constant (const_char t)
-let pstring    t = ppat_constant (const_string t none)
-let pfloat     t = ppat_constant (const_float t)
-let pint32     t = ppat_constant (const_int32 t)
-let pint64     t = ppat_constant (const_int64 t)
+let pint       t = ppat_constant (const_int       t)
+let pint32     t = ppat_constant (const_int32     t)
+let pint64     t = ppat_constant (const_int64     t)
 let pnativeint t = ppat_constant (const_nativeint t)
 
 let single_expr_payload t = pstr (pstr_eval t nil ^:: nil)
 
-let no_label t = string "" ** t
+let no_label t = (cst Asttypes.Nolabel ~to_string:(fun _ -> "Nolabel")) ** t
 
 let attribute (T f1) (T f2) = T (fun ctx loc ((name : _ Location.loc), payload) k ->
   let k = f1 ctx name.loc name.txt k in

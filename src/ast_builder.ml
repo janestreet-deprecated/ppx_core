@@ -28,21 +28,21 @@ module Default = struct
                 ({ txt = "nonrec"; loc }, PStr []) :: td.ptype_attributes }
   ;;
 
-  let eint ~loc t = pexp_constant ~loc (Const_int t)
-  let echar ~loc t = pexp_constant ~loc (Const_char t)
-  let estring ~loc t = pexp_constant ~loc (Const_string (t, None))
-  let efloat ~loc t = pexp_constant ~loc (Const_float t)
-  let eint32 ~loc t = pexp_constant ~loc (Const_int32 t)
-  let eint64 ~loc t = pexp_constant ~loc (Const_int64 t)
-  let enativeint ~loc t = pexp_constant ~loc (Const_nativeint t)
+  let eint ~loc t = pexp_constant ~loc (PConst_int (string_of_int t, None))
+  let echar ~loc t = pexp_constant ~loc (PConst_char t)
+  let estring ~loc t = pexp_constant ~loc (PConst_string (t, None))
+  let efloat ~loc t = pexp_constant ~loc (PConst_float (t, None))
+  let eint32 ~loc t = pexp_constant ~loc (PConst_int (Int32.to_string t, Some 'l'))
+  let eint64 ~loc t = pexp_constant ~loc (PConst_int (Int64.to_string t, Some 'L'))
+  let enativeint ~loc t = pexp_constant ~loc (PConst_int (Nativeint.to_string t, Some 'n'))
 
-  let pint ~loc t = ppat_constant ~loc (Const_int t)
-  let pchar ~loc t = ppat_constant ~loc (Const_char t)
-  let pstring ~loc t = ppat_constant ~loc (Const_string (t, None))
-  let pfloat ~loc t = ppat_constant ~loc (Const_float t)
-  let pint32 ~loc t = ppat_constant ~loc (Const_int32 t)
-  let pint64 ~loc t = ppat_constant ~loc (Const_int64 t)
-  let pnativeint ~loc t = ppat_constant ~loc (Const_nativeint t)
+  let pint ~loc t = ppat_constant ~loc (PConst_int (string_of_int t, None))
+  let pchar ~loc t = ppat_constant ~loc (PConst_char t)
+  let pstring ~loc t = ppat_constant ~loc (PConst_string (t, None))
+  let pfloat ~loc t = ppat_constant ~loc (PConst_float (t, None))
+  let pint32 ~loc t = ppat_constant ~loc (PConst_int (Int32.to_string t, Some 'l'))
+  let pint64 ~loc t = ppat_constant ~loc (PConst_int (Int64.to_string t, Some 'L'))
+  let pnativeint ~loc t = ppat_constant ~loc (PConst_int (Nativeint.to_string t, Some 'n'))
 
   let ebool ~loc t = pexp_construct ~loc (Located.lident ~loc (string_of_bool t)) None
   let pbool ~loc t = ppat_construct ~loc (Located.lident ~loc (string_of_bool t)) None
@@ -77,10 +77,11 @@ module Default = struct
     | _ -> pexp_apply ~loc e el
   ;;
 
-  let eapply ~loc e el = pexp_apply ~loc e (List.map el ~f:(fun e -> ("", e)))
+  let eapply ~loc e el =
+    pexp_apply ~loc e (List.map el ~f:(fun e -> (Asttypes.Nolabel, e)))
 
   let eabstract ~loc ps e =
-    List.fold_right ps ~init:e ~f:(fun p e -> pexp_fun ~loc "" None p e)
+    List.fold_right ps ~init:e ~f:(fun p e -> pexp_fun ~loc Asttypes.Nolabel None p e)
   ;;
 
   let pconstruct cd arg = ppat_construct ~loc:cd.pcd_loc (Located.map_lident cd.pcd_name) arg

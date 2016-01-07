@@ -70,8 +70,13 @@ and add_type_declaration_dependencies env acc (td : Types.type_declaration) =
   | Type_variant cds ->
     List.fold_left cds ~init:acc
       ~f:(fun acc (cd : Types.constructor_declaration) ->
-         List.fold_left cd.cd_args ~init:acc
-           ~f:(add_type_expr_dependencies env))
+        match cd.cd_args with
+        | Cstr_tuple typ_exprs ->
+          List.fold_left typ_exprs ~init:acc ~f:(add_type_expr_dependencies env)
+        | Cstr_record label_decls ->
+          List.fold_left label_decls ~init:acc
+            ~f:(fun acc (label_decl : Types.label_declaration) ->
+              add_type_expr_dependencies env acc label_decl.ld_type))
   | Type_abstract ->
     match td.type_manifest with
     | None -> acc
