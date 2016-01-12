@@ -10,7 +10,12 @@
 *)
 val matches : pattern:string -> string -> bool
 
+(** [fold_dot_suffixes "foo.bar.blah" ~init ~f] is
+    [f "foo.bar.blah" (f "bar.blah" (f "blah" init)))]
+*)
 val fold_dot_suffixes : string -> init:'a -> f:(string -> 'a -> 'a) -> 'a
+
+val get_outer_namespace : string -> string option
 
 module Registrar : sig
   (** Names are organized by context. For instance contexts can be: expressions, patterns,

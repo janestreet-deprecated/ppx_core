@@ -2,6 +2,27 @@
 (* OASIS_STOP *)
 # 3 "myocamlbuild.ml"
 
+(* Temporary hacks *)
+let js_hacks = function
+  | After_rules ->
+    rule "Generate a cmxs from a cmxa"
+      ~dep:"%.cmxa"
+      ~prod:"%.cmxs"
+      ~insert:`top
+      (fun env _ ->
+         Cmd (S [ !Options.ocamlopt
+                ; A "-shared"
+                ; A "-linkall"
+                ; A "-I"; A (Pathname.dirname (env "%"))
+                ; A (env "%.cmxa")
+                ; A "-o"
+                ; A (env "%.cmxs")
+            ]));
+
+    (* Pass -predicates to ocamldep *)
+    pflag ["ocaml"; "ocamldep"] "predicate" (fun s -> S [A "-predicates"; A s])
+  | _ -> ()
+
 let dispatch = function
   | After_rules ->
     let gen_and_mv generator files =
@@ -33,20 +54,12 @@ let dispatch = function
 
     gen_and_mv "src/gen/gen_ast_pattern.byte" ["ast_pattern_generated.ml"];
     gen_and_mv "src/gen/gen_ast_builder.byte" ["ast_builder_generated.ml"];
-
-    rule "workaround buggy tooling"
-      ~dep:"%.cmxa"
-      ~prod:"%.cmxs"
-      ~insert:`top
-      (fun env _ ->
-         Cmd (S [ !Options.ocamlopt
-                ; A "-shared"
-                ; A "-linkall"
-                ; A (env "%.cmxa")
-                ; A "-o"
-                ; A (env "%.cmxs")
-                ]));
   | _ ->
     ()
 
-let () = Ocamlbuild_plugin.dispatch (fun hook -> dispatch hook; dispatch_default hook)
+let () =
+  Ocamlbuild_plugin.dispatch (fun hook ->
+    js_hacks hook;
+    dispatch hook;
+    dispatch_default hook)
+

@@ -1,5 +1,7 @@
-    <**/*.ml{,i}>: warn(-40)
+<**/*.ml{,i}>: warn(-40), no_alias_deps
+<**/*>: thread
+# This prevents the implicit addition of -ppx options by ocamlfind
+<**/*.ml{,i}>: predicate(ppx_driver)
+<src/*.ml>: for-pack(Ppx_core)
 # OASIS_START
 # OASIS_STOP
-    # Workaround: oasis is not adding the -for-pack flag on generated files
-<src/*.ml>: for-pack(Ppx_core)

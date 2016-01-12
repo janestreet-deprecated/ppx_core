@@ -4,6 +4,23 @@ class ['acc] fold = ['acc] Ast_traverse_fold.t
 class ['acc] fold_map = ['acc] Ast_traverse_fold_map.t
 class ['ctx] map_with_context = ['ctx] Ast_traverse_map_with_context.t
 
+let enter name path = if path = "" then name else path ^ "." ^ name
+
+class map_with_path = object
+  inherit [string] map_with_context as super
+
+  method! structure_item_desc path x =
+    match x with
+    | Pstr_module mb -> super#structure_item_desc (enter mb.pmb_name.txt path) x
+    | _ -> super#structure_item_desc path x
+
+  method! module_declaration path md =
+    super#module_declaration (enter md.pmd_name.txt path) md
+
+  method! module_type_declaration path mtd =
+    super#module_type_declaration (enter mtd.pmtd_name.txt path) mtd
+end
+
 let ast_mapper_of_map (map : #map) : Ast_mapper.mapper =
   let open Ast_mapper in
   let mk f = fun (_ : Ast_mapper.mapper) -> f in

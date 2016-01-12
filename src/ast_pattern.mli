@@ -120,6 +120,7 @@ val ( ||| ) : ('a, 'b, 'c) t -> ('a, 'b, 'c) t -> ('a, 'b, 'c) t
 
 val map : ('a, 'b, 'c) t -> f:('d -> 'b) -> ('a, 'd, 'c) t
 val map' : ('a, 'b, 'c) t -> f:(Location.t -> 'd -> 'b) -> ('a, 'd, 'c) t
+val map_result : ('a, 'b, 'c) t -> f:('c -> 'd) -> ('a, 'b, 'd) t
 
 (** Same as [map] *)
 val ( >>| ) : ('a, 'b, 'c) t -> ('d -> 'b) -> ('a, 'd, 'c) t

@@ -91,6 +91,16 @@ val declare
   -> 'b
   -> ('a, 'c) t
 
+(** [reserve_namespace "foo"] has two implications:
+      - one can't then declare an attribute inside this namespace
+      - attributes within this namespace won't be reported by [check_unused]
+
+    This is here to insure that the rewriter cohabits well with other rewriter
+    or tools (e.g. merlin) which might leave attribute on the AST.
+
+    N.B. the "merlin" namespace is reserved by default. *)
+val reserve_namespace : string -> unit
+
 val get : ('a, 'b) t -> 'a -> 'b option
 
 (** [consume t x] returns the value associated to attribute [t] on [x] if present as well
@@ -122,6 +132,11 @@ module Floating : sig
 
   val convert : ('a, 'b) t list -> 'a -> 'b option
 end
+
+(** Code that is voluntarily dropped by a rewriter needs to be given to this object. All
+    attributes inside will be marked as handled.
+*)
+val explicitly_drop : Ast_traverse.iter
 
 (** Raise if there are unused attributes *)
 val check_unused : Ast_traverse.iter

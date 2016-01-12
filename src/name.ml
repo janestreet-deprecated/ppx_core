@@ -31,6 +31,11 @@ let fold_dot_suffixes name ~init:acc ~f =
   loop (String.length name - 1) acc
 ;;
 
+let get_outer_namespace name =
+  match String.index name '.' with
+  | exception Not_found -> None
+  | i -> Some (String.sub name ~pos:0 ~len:i)
+
 module Registrar = struct
   type element =
     { fully_qualified_name : string
@@ -102,7 +107,7 @@ module Registrar = struct
     | None ->
       let other_contexts =
         Hashtbl.fold t.all_by_context ~init:[] ~f:(fun ~key:ctx ~data:{ all } acc ->
-          if String_map.mem name all then
+          if context <> ctx && String_map.mem name all then
             match t.string_of_context ctx with
             | None -> acc
             | Some s -> (s ^ "s") :: acc

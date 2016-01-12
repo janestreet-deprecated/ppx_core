@@ -10,6 +10,7 @@ let white_list =
     String_set.empty
     [ "ocaml.error"
     ; "ocaml.warning"
+    ; "ocaml.ppwarning"
     ; "ocaml.deprecated"
     ; "ocaml.doc"
     ; "ocaml.text"
@@ -17,11 +18,25 @@ let white_list =
     ]
 ;;
 
+let reserved_namespaces  = ref (String_set.singleton "merlin")
+let reserve_namespace ns =
+  reserved_namespaces := String_set.add ns !reserved_namespaces
+
+let is_in_reserved_namespace name =
+  match Name.get_outer_namespace name with
+  | Some ns -> String_set.mem ns !reserved_namespaces
+  | _ -> false
+
 let check_not_reserved name =
   if String_set.mem name white_list then
     Printf.ksprintf failwith
       "Cannot register attribute with name '%s' as it matches an \
        attribute reserved by the compiler"
+      name
+  else if is_in_reserved_namespace name then
+    Printf.ksprintf failwith
+      "Cannot register attribute with name '%s' as its namespace \
+       is marked as reserved"
       name
 ;;
 
@@ -291,6 +306,11 @@ let mark_as_seen attr =
 
 let mark_as_handled_manually = mark_as_seen
 
+let explicitly_drop = object
+  inherit Ast_traverse.iter
+  method! attribute = mark_as_seen
+end
+
 let get_internal =
   let rec find_best_match t attributes longest_match =
     match attributes with
@@ -403,7 +423,7 @@ module Floating = struct
 end
 
 let check_attribute registrar context name =
-  if not (String_set.mem name.txt white_list) then
+  if not (String_set.mem name.txt white_list || is_in_reserved_namespace name.txt) then
     let white_list = String_set.elements white_list in
     Name.Registrar.raise_errorf registrar context ~white_list
       "Attribute `%s' was not used" name
@@ -497,7 +517,7 @@ let freshen_and_collect = object
   method! attribute ((name, payload) as attr) =
     let loc = Common.loc_of_attribute attr in
     let payload = super#payload payload in
-    let key = String.copy name.txt in
+    let key = Bytes.copy name.txt in
     let name = { name with txt = key } in
     Phys_table.add not_seen key loc;
     (name, payload)

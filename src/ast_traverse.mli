@@ -30,6 +30,7 @@ class iter                    : Ast_traverse_iter.t
 class ['acc] fold             : ['acc] Ast_traverse_fold.t
 class ['acc] fold_map         : ['acc] Ast_traverse_fold_map.t
 class ['ctx] map_with_context : ['ctx] Ast_traverse_map_with_context.t
+class map_with_path           : [string] map_with_context
 
 (** Turn a [map] class into an [Ast_mapper.mapper] record.
 

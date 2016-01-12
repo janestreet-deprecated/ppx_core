@@ -1,0 +1,15 @@
+version = "$(pkg_version)"
+description = "Standard library for ppx rewriters"
+requires = "compiler-libs.common"
+archive(byte          ) = "ppx_core.cma"
+archive(native        ) = "ppx_core.cmxa"
+archive(native, plugin) = "ppx_core.cmxs"
+exists_if = "ppx_core.cma"
+
+package "for_ppx_deriving" (
+  description = "Don't use this directly"
+  error(ppx_driver) = "Cannot use ppx_core.for_ppx_deriving when ppx_driver is set"
+  requires = "compiler-libs.common ppx_deriving"
+  exists_if = "ppx_core.cma"
+  ppxopt = "ppx_deriving,./ppx_core.cma"
+)

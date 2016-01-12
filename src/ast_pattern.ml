@@ -20,6 +20,8 @@ let __ = T (fun ctx _loc x k -> incr_matched ctx; k x)
 
 let __' = T (fun ctx loc x k -> incr_matched ctx; k { Location. loc; txt = x })
 
+let drop = T (fun ctx _loc _ k -> incr_matched ctx; k)
+
 let cst ~to_string ?(equal=(=)) v = T (fun ctx loc x k ->
   if equal x v then begin
     incr_matched ctx;
@@ -74,6 +76,7 @@ let ( ||| ) = alt
 
 let map (T func) ~f = T (fun ctx loc x k -> func ctx loc x (f k))
 let map' (T func) ~f = T (fun ctx loc x k -> func ctx loc x (f loc k))
+let map_result (T func) ~f = T (fun ctx loc x k -> f (func ctx loc x k))
 
 let ( >>| ) t f = map t ~f
 
@@ -95,7 +98,7 @@ let ( ^:: ) = cons
 
 let eint       t = pexp_constant (const_int t)
 let echar      t = pexp_constant (const_char t)
-let estring    t = pexp_constant (const_string t none)
+let estring    t = pexp_constant (const_string t drop)
 let efloat     t = pexp_constant (const_float t)
 let eint32     t = pexp_constant (const_int32 t)
 let eint64     t = pexp_constant (const_int64 t)
@@ -103,7 +106,7 @@ let enativeint t = pexp_constant (const_nativeint t)
 
 let pint       t = ppat_constant (const_int t)
 let pchar      t = ppat_constant (const_char t)
-let pstring    t = ppat_constant (const_string t none)
+let pstring    t = ppat_constant (const_string t drop)
 let pfloat     t = ppat_constant (const_float t)
 let pint32     t = ppat_constant (const_int32 t)
 let pint64     t = ppat_constant (const_int64 t)
