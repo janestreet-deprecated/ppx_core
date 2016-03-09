@@ -511,6 +511,8 @@ let check_unused = object(self)
     super#signature_item item
 end
 
+let reset_checks () = Phys_table.clear not_seen
+
 let freshen_and_collect = object
   inherit Ast_traverse.map as super
 

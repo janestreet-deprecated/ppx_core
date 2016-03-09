@@ -1,4 +1,3 @@
-open Asttypes
 open Parsetree
 
 module Context : sig

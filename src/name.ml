@@ -114,30 +114,37 @@ module Registrar = struct
           else
             acc)
       in
-      let current_context =
+      let pp_text = Format.pp_print_text in
+      let current_context ppf =
         match t.string_of_context context with
-        | None | Some "" -> ""
+        | None | Some "" -> ()
         | Some s ->
           let a_or_an =
             match s.[0] with
             | 'a' | 'e' | 'i' | 'o' | 'u' | 'y' -> "an"
             | _ -> "a"
           in
-          Printf.sprintf " but is used here in the context of %s %s" a_or_an s
+          Format.fprintf ppf "@ but@ is@ used@ here@ in@ the@ context@ of@ %s@ %a"
+            a_or_an pp_text s
       in
       match List.sort ~cmp:(fun x y -> - (String.compare x y)) other_contexts with
       | [] -> None
       | [c] ->
         Some
-          (Printf.sprintf "Hint: `%s' is available for %s%s. \
-                           Did you put it at the wrong level?"
-             name c current_context)
+          (Format.asprintf
+             "@[Hint:@ `%s'@ is@ available@ for@ %a%t.@]@\n\
+              Did you put it at the wrong level?"
+             name pp_text c current_context)
       | last :: rev_others ->
         let others = List.rev rev_others in
         Some
-          (Printf.sprintf "Hint: `%s' is available for %s and %s%s. \
-                           Did you put it at the wrong level?"
-             name (String.concat ~sep:", " others) last current_context)
+          (Format.asprintf
+             "@[Hint:@ `%s'@ is@ available@ for@ %a@ and@ %a%t.@]@\n\
+              Did you put it at the wrong level?"
+             name
+             (Format.pp_print_list pp_text
+                ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ "))
+             others pp_text last current_context)
   ;;
 
   let raise_errorf t context ?white_list fmt (name : string Location.loc) =

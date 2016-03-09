@@ -73,7 +73,6 @@
     override the field with the [{ e with pexp_attributes = ... }] notation.
 *)
 
-open Parsetree
 
 (** Helpers taking a [~loc] argument. This module is meant to be opened or aliased. *)
 module Default : sig

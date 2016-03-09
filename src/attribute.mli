@@ -4,7 +4,6 @@
     attributes to the user as soon as possible so that no mistyped attribute get silently
     ignored. *)
 
-open Asttypes
 open Parsetree
 
 type ('context, 'payload) t
@@ -163,6 +162,8 @@ val mark_as_handled_manually : attribute -> unit
     that drop attributes. *)
 val dropped_so_far_structure : structure -> string Location.loc list
 val dropped_so_far_signature : signature -> string Location.loc list
+
+val reset_checks :  unit -> unit
 
 val pattern
   :  ('a, 'b) t
