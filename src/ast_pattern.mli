@@ -115,6 +115,10 @@ val __' : ('a, 'a Location.loc -> 'b, 'b) t
     one. *)
 val alt : ('a, 'b, 'c) t -> ('a, 'b, 'c) t -> ('a, 'b, 'c) t
 
+(** Same as [alt], for the common case where the left-hand-side captures a value but not
+    the right-hand-side. *)
+val alt_option : ('a, 'v -> 'b, 'c) t -> ('a, 'b, 'c) t -> ('a, 'v option -> 'b, 'c) t
+
 (** Same as [alt] *)
 val ( ||| ) : ('a, 'b, 'c) t -> ('a, 'b, 'c) t -> ('a, 'b, 'c) t
 
@@ -124,6 +128,10 @@ val map_result : ('a, 'b, 'c) t -> f:('c -> 'd) -> ('a, 'b, 'd) t
 
 (** Same as [map] *)
 val ( >>| ) : ('a, 'b, 'c) t -> ('d -> 'b) -> ('a, 'd, 'c) t
+
+val map0 : ('a,               'b, 'c) t -> f:               'v  -> ('a, 'v -> 'b, 'c) t
+val map1 : ('a, 'v1 ->        'b, 'c) t -> f:('v1 ->        'v) -> ('a, 'v -> 'b, 'c) t
+val map2 : ('a, 'v1 -> 'v2 -> 'b, 'c) t -> f:('v1 -> 'v2 -> 'v) -> ('a, 'v -> 'b, 'c) t
 
 val ( ^:: ) : ('a, 'b, 'c) t -> ('a list, 'c, 'd) t -> ('a list, 'b, 'd) t
 val many : ('a, 'b -> 'b, 'c) t -> ('a list, 'c list -> 'd, 'd) t
@@ -194,7 +202,7 @@ val pnativeint : (nativeint , 'a, 'b) t -> (pattern, 'a, 'b) t
 
 val single_expr_payload : (expression, 'a, 'b) t -> (payload, 'a, 'b) t
 
-val no_label : (expression, 'a, 'b) t -> (string * expression, 'a, 'b) t
+val no_label : (expression, 'a, 'b) t -> (Asttypes.arg_label * expression, 'a, 'b) t
 
 val attribute : (string, 'a, 'b) t -> (payload, 'b, 'c) t -> (attribute, 'a, 'c) t
 val extension : (string, 'a, 'b) t -> (payload, 'b, 'c) t -> (attribute, 'a, 'c) t
