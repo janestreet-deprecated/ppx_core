@@ -78,6 +78,7 @@ module Context = struct
     | Pstr_eval               : structure_item          t
     | Pstr_extension          : structure_item          t
     | Psig_extension          : signature_item          t
+    | Row_field               : row_field               t
 
   let label_declaration       = Label_declaration
   let constructor_declaration = Constructor_declaration
@@ -104,6 +105,7 @@ module Context = struct
   let pstr_eval               = Pstr_eval
   let pstr_extension          = Pstr_extension
   let psig_extension          = Psig_extension
+  let row_field               = Row_field
 
   let get_pstr_eval st =
     match st.pstr_desc with
@@ -119,6 +121,17 @@ module Context = struct
     match st.psig_desc with
     | Psig_extension (e, l) -> (e, l)
     | _ -> failwith "Attribute.Context.get_psig_extension"
+
+  module Row_field = struct
+    let get_attrs = function
+      | Rinherit _ -> []
+      | Rtag (_, attrs, _, _) -> attrs
+
+    let set_attrs attrs = function
+      | Rinherit _ -> invalid_arg "Row_field.set_attrs"
+      | Rtag (lbl, _, can_be_constant, params_opts) ->
+        Rtag (lbl, attrs, can_be_constant, params_opts)
+  end
 
   let get_attributes : type a. a t -> a -> attributes = fun t x ->
     match t with
@@ -147,6 +160,7 @@ module Context = struct
     | Pstr_eval               -> snd (get_pstr_eval      x)
     | Pstr_extension          -> snd (get_pstr_extension x)
     | Psig_extension          -> snd (get_psig_extension x)
+    | Row_field               -> Row_field.get_attrs x
 
   let set_attributes : type a. a t -> a -> attributes -> a = fun t x attrs ->
     match t with
@@ -178,6 +192,7 @@ module Context = struct
       { x with pstr_desc = Pstr_extension (get_pstr_extension x |> fst, attrs) }
     | Psig_extension ->
       { x with psig_desc = Psig_extension (get_psig_extension x |> fst, attrs) }
+    | Row_field               -> Row_field.set_attrs attrs x
 
   let desc : type a. a t -> string = function
     | Label_declaration       -> "label declaration"
@@ -205,6 +220,7 @@ module Context = struct
     | Pstr_eval               -> "toplevel expression"
     | Pstr_extension          -> "toplevel extension"
     | Psig_extension          -> "toplevel signature extension"
+    | Row_field               -> "row field"
 
 (*
   let pattern : type a b c d. a t
@@ -484,6 +500,7 @@ let check_unused = object(self)
   method! module_expr             x = super#module_expr             (self#check_node Context.Module_expr             x)
   method! value_binding           x = super#value_binding           (self#check_node Context.Value_binding           x)
   method! module_binding          x = super#module_binding          (self#check_node Context.Module_binding          x)
+  method! row_field               x = super#row_field               (self#check_node Context.Row_field               x)
 
   method! class_field x =
     let x = self#check_node              Context.Class_field x in

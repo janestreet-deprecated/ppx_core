@@ -42,6 +42,7 @@ module Context : sig
   val pstr_eval               : structure_item          t
   val pstr_extension          : structure_item          t
   val psig_extension          : signature_item          t
+  val row_field               : row_field               t
 end
 
 (** [declare fully_qualified_name context payload_pattern k] declares an attribute. [k] is
