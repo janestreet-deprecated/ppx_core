@@ -22,6 +22,10 @@ module Default = struct
 
   include Ast_builder_generated.M
 
+  let pstr_value_list ~loc rec_flag = function
+    | [] -> []
+    | vbs -> [pstr_value ~loc rec_flag vbs]
+
   let nonrec_type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest =
     let td = type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest in
     { td with ptype_attributes =
@@ -111,6 +115,8 @@ module type S   = Ast_builder_intf.S
 
 module Make(Loc : sig val loc : Location.t end) : S = struct
   include Ast_builder_generated.Make(Loc)
+
+  let pstr_value_list = Default.pstr_value_list
 
   let nonrec_type_declaration ~name ~params ~cstrs ~kind ~private_ ~manifest =
     Default.nonrec_type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest
