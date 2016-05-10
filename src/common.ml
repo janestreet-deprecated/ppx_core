@@ -72,11 +72,15 @@ let type_is_recursive short_circuit type_names = object(self)
         raise Stop
       | _ -> super#core_type ctyp
 
+  method! label_declaration ld =
+    self#core_type ld.pld_type
+
   method! constructor_declaration cd =
     (* Don't recurse through cd.pcd_res *)
     match cd.pcd_args with
     | Pcstr_tuple args -> List.iter (fun ty -> self#core_type ty) args
-    | Pcstr_record _ -> failwith "Pcstr_record not supported"
+    | Pcstr_record fields ->
+       List.iter (fun ld -> self#label_declaration ld) fields
 end
 
 let types_are_recursive ?(stop_on_functions = true) ?(short_circuit = fun _ -> None)
