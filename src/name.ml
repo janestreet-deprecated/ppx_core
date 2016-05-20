@@ -14,7 +14,15 @@ let matches ~pattern matched =
     let len_matched = String.length matched in
     let start = len_pattern - len_matched in
     start > 0 && pattern.[start - 1] = '.' &&
-    String.sub pattern ~pos:start ~len:(len_pattern - start) = matched
+    (
+      let i = ref 0 in
+      while !i < len_matched &&
+            String.unsafe_get matched !i = String.unsafe_get pattern (start + !i)
+      do
+        incr i
+      done;
+      !i = len_matched
+    )
   )
 
 let fold_dot_suffixes name ~init:acc ~f =

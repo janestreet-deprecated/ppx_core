@@ -142,43 +142,63 @@ module Expert = struct
     | Some { payload = Payload_parser (pattern, f); _ } ->
       Some (Ast_pattern.parse pattern loc (snd ext) f)
 end
-include Expert
-let convert ts ext = convert ts ~loc:(Common.loc_of_payload ext) ext
 
-module V2 = struct
-  module M = Make(struct type 'a t = loc:Location.t -> path:string -> 'a end)
+module M = Make(struct type 'a t = loc:Location.t -> path:string -> 'a end)
 
-  type 'a result =
-    | Simple of 'a
-    | Inline of 'a list
+type 'a expander_result =
+  | Simple of 'a
+  | Inline of 'a list
 
-  type 'a unpacked = ('a, 'a result) M.t
+module For_context = struct
+  type 'a t = ('a, 'a expander_result) M.t
 
-  type t = T : _ unpacked -> t
-
-  let declare name context pattern k =
-    let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Simple x) in
-    T (M.declare name context pattern k)
+  let convert ts ~loc ~path ext =
+    match M.find ts ext with
+    | None -> None
+    | Some { payload = M.Payload_parser (pattern, f); _  } ->
+      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path) with
+      | Simple x -> Some x
+      | Inline _ -> failwith "Extension.convert"
   ;;
 
-  let check_context_for_inline : type a. a Context.t -> unit = function
+  let convert_inline ts ~loc ~path ext =
+    match M.find ts ext with
+    | None -> None
+    | Some { payload = M.Payload_parser (pattern, f); _  } ->
+      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path) with
+      | Simple x -> Some [x]
+      | Inline l -> Some l
+  ;;
+end
+
+type t = T : _ For_context.t -> t
+
+let declare name context pattern k =
+  let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Simple x) in
+  T (M.declare name context pattern k)
+;;
+
+let check_context_for_inline : type a. func:string -> a Context.t -> unit =
+  fun ~func ctx ->
+    match ctx with
     | Context.Class_field      -> ()
     | Context.Class_type_field -> ()
     | Context.Signature_item   -> ()
     | Context.Structure_item   -> ()
     | context ->
-      Printf.ksprintf invalid_arg "Extension.V2.declare_inline: %s can't be inlined"
+      Printf.ksprintf invalid_arg "%s: %s can't be inlined"
+        func
         (Context.desc context)
-  ;;
+;;
 
-  let declare_inline name context pattern k =
-    check_context_for_inline context;
-    let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Inline x) in
-    T (M.declare name context pattern k)
-  ;;
+let declare_inline name context pattern k =
+  check_context_for_inline context ~func:"Extension.declare_inline";
+  let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Inline x) in
+  T (M.declare name context pattern k)
+;;
 
-  let rec filter_by_context
-    : type a. a Context.t -> t list -> a unpacked list =
+let rec filter_by_context
+    : type a. a Context.t -> t list -> a For_context.t list =
     fun context expanders ->
       match expanders with
       | [] -> []
@@ -186,129 +206,7 @@ module V2 = struct
         match Context.eq context t.context with
         | Eq -> t :: filter_by_context context rest
         | Ne ->      filter_by_context context rest
-  ;;
-
-  let convert_no_inline ts ~loc ~path ext =
-    match M.find ts ext with
-    | None -> None
-    | Some { payload = M.Payload_parser (pattern, f); _  } ->
-      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path) with
-      | Simple x -> Some x
-      | Inline _ -> failwith "Extension.V2.convert_no_inline"
-  ;;
-
-  let rec map_node context ts super_call loc path x =
-    match Context.get_extension context x with
-    | None -> super_call path x
-    | Some (ext, attrs) ->
-      match convert_no_inline ts ~loc ~path ext with
-      | None -> super_call path x
-      | Some x ->
-        map_node context ts super_call loc path (Context.merge_attributes context x attrs)
-  ;;
-
-  let rec map_nodes context ts super_call get_loc path l =
-    match l with
-    | [] -> []
-    | x :: l ->
-      match Context.get_extension context x with
-      | None ->
-        (* These two lets force the evaluation order, so that errors are reported in the
-           same order as they appear in the source file. *)
-        let x = super_call path x in
-        let l = map_nodes context ts super_call get_loc path l in
-        x :: l
-      | Some (ext, attrs) ->
-        match M.find ts ext with
-        | None ->
-          let x = super_call path x in
-          let l = map_nodes context ts super_call get_loc path l in
-          x :: l
-        | Some { payload = M.Payload_parser (pattern, f); _ } ->
-          assert_no_attributes attrs;
-          let loc = get_loc x in
-          let result = Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path) in
-          map_nodes context ts super_call get_loc path
-            (match result with
-             | Simple x -> x :: l
-             | Inline x -> x @ l)
-  ;;
-
-  class map_top_down expanders =
-    let class_expr       = filter_by_context Class_expr       expanders
-    and class_field      = filter_by_context Class_field      expanders
-    and class_type       = filter_by_context Class_type       expanders
-    and class_type_field = filter_by_context Class_type_field expanders
-    and core_type        = filter_by_context Core_type        expanders
-    and expression       = filter_by_context Expression       expanders
-    and module_expr      = filter_by_context Module_expr      expanders
-    and module_type      = filter_by_context Module_type      expanders
-    and pattern          = filter_by_context Pattern          expanders
-    and signature_item   = filter_by_context Signature_item   expanders
-    and structure_item   = filter_by_context Structure_item   expanders
-    in
-    object(self)
-      inherit Ast_traverse.map_with_path as super
-
-      method! core_type path x =
-        map_node Core_type core_type super#core_type x.ptyp_loc path x
-
-      method! pattern path x =
-        map_node Pattern pattern super#pattern x.ppat_loc path x
-
-      method! expression path x =
-        map_node Expression expression super#expression x.pexp_loc path x
-
-      method! class_type path x =
-        map_node Class_type class_type super#class_type x.pcty_loc path x
-
-      method! class_type_field path x =
-        map_node Class_type_field class_type_field super#class_type_field
-          x.pctf_loc path x
-
-      method! class_expr path x =
-        map_node Class_expr class_expr super#class_expr x.pcl_loc path x
-
-      method! class_field path x =
-        map_node Class_field class_field super#class_field x.pcf_loc path x
-
-      method! module_type path x =
-        map_node Module_type module_type super#module_type x.pmty_loc path x
-
-      method! module_expr path x =
-        map_node Module_expr module_expr super#module_expr x.pmod_loc path x
-
-      method! structure_item path x =
-        map_node Structure_item structure_item super#structure_item x.pstr_loc path x
-
-      method! signature_item path x =
-        map_node Signature_item signature_item super#signature_item x.psig_loc path x
-
-      method! class_structure path { pcstr_self; pcstr_fields } =
-        let pcstr_self = self#pattern path pcstr_self in
-        let pcstr_fields =
-          map_nodes Class_field class_field super#class_field
-            (fun x -> x.pcf_loc) path pcstr_fields
-        in
-        { pcstr_self; pcstr_fields }
-
-      method! class_signature path { pcsig_self; pcsig_fields } =
-        let pcsig_self = self#core_type path pcsig_self in
-        let pcsig_fields =
-          map_nodes Class_type_field class_type_field super#class_type_field
-            (fun x -> x.pctf_loc) path pcsig_fields
-        in
-        { pcsig_self; pcsig_fields }
-
-      method! structure path x =
-        map_nodes Structure_item structure_item super#structure_item
-          (fun x -> x.pstr_loc) path x
-
-      method! signature path x =
-        map_nodes Signature_item signature_item super#signature_item
-          (fun x -> x.psig_loc) path x
-    end
-end
+;;
 
 let fail ctx (name, _) =
   Name.Registrar.raise_errorf registrar (Context.T ctx)
@@ -365,4 +263,10 @@ let check_unused = object
   method! structure_item_desc = function
     | Pstr_extension (ext, _) -> fail Structure_item ext
     | x -> super#structure_item_desc x
+end
+
+module V2 = struct
+  type nonrec t = t
+  let declare = declare
+  let declare_inline = declare_inline
 end

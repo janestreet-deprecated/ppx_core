@@ -22,6 +22,10 @@ module Default = struct
 
   include Ast_builder_generated.M
 
+  let pstr_value_list ~loc rec_flag = function
+    | [] -> []
+    | vbs -> [pstr_value ~loc rec_flag vbs]
+
   let nonrec_type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest =
     let td = type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest in
     { td with ptype_attributes =
@@ -68,6 +72,16 @@ module Default = struct
     | [x] -> x
     | _   -> ptyp_tuple ~loc l
 
+  let pexp_tuple_opt ~loc l =
+    match l with
+    | [] -> None
+    | _ :: _ -> Some (pexp_tuple ~loc l)
+
+  let ppat_tuple_opt ~loc l =
+    match l with
+    | [] -> None
+    | _ :: _ -> Some (ppat_tuple ~loc l)
+
   let pexp_apply ~loc e el =
     match e, el with
     | _, [] -> e
@@ -111,6 +125,8 @@ module type S   = Ast_builder_intf.S
 module Make(Loc : sig val loc : Location.t end) : S = struct
   include Ast_builder_generated.Make(Loc)
 
+  let pstr_value_list = Default.pstr_value_list
+
   let nonrec_type_declaration ~name ~params ~cstrs ~kind ~private_ ~manifest =
     Default.nonrec_type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest
   ;;
@@ -127,6 +143,8 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
   let pexp_tuple l = Default.pexp_tuple ~loc l
   let ppat_tuple l = Default.ppat_tuple ~loc l
   let ptyp_tuple l = Default.ptyp_tuple ~loc l
+  let pexp_tuple_opt l = Default.pexp_tuple_opt ~loc l
+  let ppat_tuple_opt l = Default.ppat_tuple_opt ~loc l
 
   let pexp_apply e el = Default.pexp_apply ~loc e el
 

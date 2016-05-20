@@ -4,6 +4,14 @@ open Parsetree
 module String_set = Set.Make(String)
 module String_map = Map.Make(String)
 
+(* White list the following attributes, as well as all their dot suffixes.
+
+   Since these attributes are interpreted by the compiler itself, we cannot check at the
+   level of a ppx rewriter that they have been properly interpreted, so we just accept
+   them anywhere.
+
+   Sadly, the compiler silently ignores them if they are misplaced...
+*)
 let white_list =
   List.fold_left
     (fun acc name -> Name.fold_dot_suffixes name ~init:acc ~f:String_set.add)
@@ -74,6 +82,8 @@ module Context = struct
     | Pstr_eval               : structure_item          t
     | Pstr_extension          : structure_item          t
     | Psig_extension          : signature_item          t
+    | Rtag                    : row_field               t
+    | Object_type_field       : (string * attributes * core_type) t
 
   let label_declaration       = Label_declaration
   let constructor_declaration = Constructor_declaration
@@ -100,6 +110,8 @@ module Context = struct
   let pstr_eval               = Pstr_eval
   let pstr_extension          = Pstr_extension
   let psig_extension          = Psig_extension
+  let rtag                    = Rtag
+  let object_type_field       = Object_type_field
 
   let get_pstr_eval st =
     match st.pstr_desc with
@@ -115,6 +127,11 @@ module Context = struct
     match st.psig_desc with
     | Psig_extension (e, l) -> (e, l)
     | _ -> failwith "Attribute.Context.get_psig_extension"
+
+  let get_rtag : Parsetree.row_field -> _ = function
+    | Rtag (lbl, attrs, can_be_constant, params_opts) ->
+      (lbl, attrs, can_be_constant, params_opts)
+    | Rinherit _ -> failwith "Attribute.Context.get_rgag"
 
   let get_attributes : type a. a t -> a -> attributes = fun t x ->
     match t with
@@ -143,6 +160,8 @@ module Context = struct
     | Pstr_eval               -> snd (get_pstr_eval      x)
     | Pstr_extension          -> snd (get_pstr_extension x)
     | Psig_extension          -> snd (get_psig_extension x)
+    | Rtag                    -> let (_, attrs, _, _) = get_rtag x in attrs
+    | Object_type_field       -> let (_, attrs, _) = x in attrs
 
   let set_attributes : type a. a t -> a -> attributes -> a = fun t x attrs ->
     match t with
@@ -174,6 +193,12 @@ module Context = struct
       { x with pstr_desc = Pstr_extension (get_pstr_extension x |> fst, attrs) }
     | Psig_extension ->
       { x with psig_desc = Psig_extension (get_psig_extension x |> fst, attrs) }
+    | Rtag                   ->
+      let (lbl, _, can_be_constant, params_opts) = get_rtag x in
+      Rtag (lbl, attrs, can_be_constant, params_opts)
+    | Object_type_field ->
+      let (name, _, typ) = x in
+      (name, attrs, typ)
 
   let desc : type a. a t -> string = function
     | Label_declaration       -> "label declaration"
@@ -201,6 +226,8 @@ module Context = struct
     | Pstr_eval               -> "toplevel expression"
     | Pstr_extension          -> "toplevel extension"
     | Psig_extension          -> "toplevel signature extension"
+    | Rtag                    -> "polymorphic variant tag"
+    | Object_type_field       -> "object type field"
 
 (*
   let pattern : type a b c d. a t
@@ -272,6 +299,9 @@ type ('a, 'b) t =
   }
 
 type packed = T : (_, _) t -> packed
+
+let name t = t.name
+let context t = t.context
 
 let registrar =
   Name.Registrar.create
@@ -423,7 +453,9 @@ module Floating = struct
 end
 
 let check_attribute registrar context name =
-  if not (String_set.mem name.txt white_list || is_in_reserved_namespace name.txt) then
+  if not (String_set.mem name.txt white_list
+          || is_in_reserved_namespace name.txt)
+  && Phys_table.mem not_seen name.txt then
     let white_list = String_set.elements white_list in
     Name.Registrar.raise_errorf registrar context ~white_list
       "Attribute `%s' was not used" name
@@ -460,52 +492,70 @@ let check_unused = object(self)
         mark_as_seen attr;
         Floating.Context.replace_by_dummy context node
 
-  method! label_declaration       x = super#label_declaration       (self#check_node Context.Label_declaration       x)
-  method! constructor_declaration x = super#constructor_declaration (self#check_node Context.Constructor_declaration x)
-  method! type_declaration        x = super#type_declaration        (self#check_node Context.Type_declaration        x)
-  method! type_extension          x = super#type_extension          (self#check_node Context.Type_extension          x)
-  method! extension_constructor   x = super#extension_constructor   (self#check_node Context.Extension_constructor   x)
-  method! pattern                 x = super#pattern                 (self#check_node Context.Pattern                 x)
-  method! core_type               x = super#core_type               (self#check_node Context.Core_type               x)
-  method! expression              x = super#expression              (self#check_node Context.Expression              x)
-  method! value_description       x = super#value_description       (self#check_node Context.Value_description       x)
-  method! class_type              x = super#class_type              (self#check_node Context.Class_type              x)
-  method! class_infos f           x = super#class_infos f           (self#check_node Context.Class_infos             x)
-  method! class_expr              x = super#class_expr              (self#check_node Context.Class_expr              x)
-  method! module_type             x = super#module_type             (self#check_node Context.Module_type             x)
-  method! module_declaration      x = super#module_declaration      (self#check_node Context.Module_declaration      x)
-  method! module_type_declaration x = super#module_type_declaration (self#check_node Context.Module_type_declaration x)
-  method! open_description        x = super#open_description        (self#check_node Context.Open_description        x)
-  method! include_infos f         x = super#include_infos f         (self#check_node Context.Include_infos           x)
-  method! module_expr             x = super#module_expr             (self#check_node Context.Module_expr             x)
-  method! value_binding           x = super#value_binding           (self#check_node Context.Value_binding           x)
-  method! module_binding          x = super#module_binding          (self#check_node Context.Module_binding          x)
+  method! label_declaration       x = super#label_declaration       (self#check_node Label_declaration       x)
+  method! constructor_declaration x = super#constructor_declaration (self#check_node Constructor_declaration x)
+  method! type_declaration        x = super#type_declaration        (self#check_node Type_declaration        x)
+  method! type_extension          x = super#type_extension          (self#check_node Type_extension          x)
+  method! extension_constructor   x = super#extension_constructor   (self#check_node Extension_constructor   x)
+  method! pattern                 x = super#pattern                 (self#check_node Pattern                 x)
+  method! core_type               x = super#core_type               (self#check_node Core_type               x)
+  method! expression              x = super#expression              (self#check_node Expression              x)
+  method! value_description       x = super#value_description       (self#check_node Value_description       x)
+  method! class_type              x = super#class_type              (self#check_node Class_type              x)
+  method! class_infos f           x = super#class_infos f           (self#check_node Class_infos             x)
+  method! class_expr              x = super#class_expr              (self#check_node Class_expr              x)
+  method! module_type             x = super#module_type             (self#check_node Module_type             x)
+  method! module_declaration      x = super#module_declaration      (self#check_node Module_declaration      x)
+  method! module_type_declaration x = super#module_type_declaration (self#check_node Module_type_declaration x)
+  method! open_description        x = super#open_description        (self#check_node Open_description        x)
+  method! include_infos f         x = super#include_infos f         (self#check_node Include_infos           x)
+  method! module_expr             x = super#module_expr             (self#check_node Module_expr             x)
+  method! value_binding           x = super#value_binding           (self#check_node Value_binding           x)
+  method! module_binding          x = super#module_binding          (self#check_node Module_binding          x)
 
   method! class_field x =
-    let x = self#check_node              Context.Class_field x in
-    let x = self#check_floating Floating.Context.Class_field x in
+    let x = self#check_node     Class_field x in
+    let x = self#check_floating Class_field x in
     super#class_field x
 
   method! class_type_field x =
-    let x = self#check_node              Context.Class_type_field x in
-    let x = self#check_floating Floating.Context.Class_type_field x in
+    let x = self#check_node     Class_type_field x in
+    let x = self#check_floating Class_type_field x in
     super#class_type_field x
 
+  method! row_field x =
+    let x =
+      match x with
+      | Rtag _ -> self#check_node Rtag x
+      | _      -> x
+    in
+    super#row_field x
+
+  method! core_type_desc x =
+    let x =
+      match x with
+      | Ptyp_object (fields, closed_flag) ->
+        let fields = List.map (self#check_node Object_type_field) fields in
+        Ptyp_object (fields, closed_flag)
+      | _ -> x
+    in
+    super#core_type_desc x
+
   method! structure_item item =
-    let item = self#check_floating Floating.Context.Structure_item item in
+    let item = self#check_floating Structure_item item in
     let item =
       match item.pstr_desc with
-      | Pstr_eval      _ -> self#check_node Context.Pstr_eval      item
-      | Pstr_extension _ -> self#check_node Context.Pstr_extension item
+      | Pstr_eval      _ -> self#check_node Pstr_eval      item
+      | Pstr_extension _ -> self#check_node Pstr_extension item
       | _                -> item
     in
     super#structure_item item
 
   method! signature_item item =
-    let item = self#check_floating Floating.Context.Signature_item item in
+    let item = self#check_floating Signature_item item in
     let item =
       match item.psig_desc with
-      | Psig_extension _ -> self#check_node Context.Psig_extension item
+      | Psig_extension _ -> self#check_node Psig_extension item
       | _                -> item
     in
     super#signature_item item

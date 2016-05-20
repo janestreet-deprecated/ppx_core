@@ -15,7 +15,34 @@ type ('context, 'payload) t
 type packed = T : (_, _) t -> packed
 
 module Context : sig
-  type 'a t
+  type 'a t =
+    | Label_declaration       : label_declaration       t
+    | Constructor_declaration : constructor_declaration t
+    | Type_declaration        : type_declaration        t
+    | Type_extension          : type_extension          t
+    | Extension_constructor   : extension_constructor   t
+    | Pattern                 : pattern                 t
+    | Core_type               : core_type               t
+    | Expression              : expression              t
+    | Value_description       : value_description       t
+    | Class_type              : class_type              t
+    | Class_type_field        : class_type_field        t
+    | Class_infos             : _ class_infos           t
+    | Class_expr              : class_expr              t
+    | Class_field             : class_field             t
+    | Module_type             : module_type             t
+    | Module_declaration      : module_declaration      t
+    | Module_type_declaration : module_type_declaration t
+    | Open_description        : open_description        t
+    | Include_infos           : _ include_infos         t
+    | Module_expr             : module_expr             t
+    | Value_binding           : value_binding           t
+    | Module_binding          : module_binding          t
+    | Pstr_eval               : structure_item          t
+    | Pstr_extension          : structure_item          t
+    | Psig_extension          : signature_item          t
+    | Rtag                    : row_field               t
+    | Object_type_field       : (string * attributes * core_type) t
 
   val label_declaration       : label_declaration       t
   val constructor_declaration : constructor_declaration t
@@ -42,6 +69,8 @@ module Context : sig
   val pstr_eval               : structure_item          t
   val pstr_extension          : structure_item          t
   val psig_extension          : signature_item          t
+  val rtag                    : row_field               t
+  val object_type_field       : (string * attributes * core_type) t
 end
 
 (** [declare fully_qualified_name context payload_pattern k] declares an attribute. [k] is
@@ -89,6 +118,9 @@ val declare
   -> (payload, 'b, 'c) Ast_pattern.t
   -> 'b
   -> ('a, 'c) t
+
+val name : _ t -> string
+val context : ('a, _) t -> 'a Context.t
 
 (** [reserve_namespace "foo"] has two implications:
       - one can't then declare an attribute inside this namespace

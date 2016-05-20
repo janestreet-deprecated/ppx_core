@@ -38,11 +38,19 @@ module type Additional_helpers = sig
 
   val eabstract : (pattern list -> expression -> expression) with_loc
 
+  val ppat_tuple_opt : (pattern list -> pattern option) with_loc
+  val pexp_tuple_opt : (expression list -> expression option) with_loc
+
   val pconstruct : constructor_declaration -> pattern    option -> pattern
   val econstruct : constructor_declaration -> expression option -> expression
 
   val elist : (expression list -> expression) with_loc
   val plist : (pattern    list -> pattern   ) with_loc
+
+  val pstr_value_list :
+    loc:Location.t -> Asttypes.rec_flag -> value_binding list -> structure_item list
+  (** [pstr_value_list ~loc rf vbs] = [pstr_value ~loc rf vbs] if [vbs <> []], [[]]
+      otherwise. *)
 
   val nonrec_type_declaration :
     (name:string Location.loc

@@ -1,7 +1,20 @@
 open Parsetree
 
+type (_, _) equality = Eq : ('a, 'a) equality | Ne : (_, _) equality
+
 module Context : sig
-  type 'a t
+  type 'a t =
+    | Class_expr       : class_expr       t
+    | Class_field      : class_field      t
+    | Class_type       : class_type       t
+    | Class_type_field : class_type_field t
+    | Core_type        : core_type        t
+    | Expression       : expression       t
+    | Module_expr      : module_expr      t
+    | Module_type      : module_type      t
+    | Pattern          : pattern          t
+    | Signature_item   : signature_item   t
+    | Structure_item   : structure_item   t
 
   val class_expr       : class_expr       t
   val class_field      : class_field      t
@@ -14,45 +27,69 @@ module Context : sig
   val pattern          : pattern          t
   val signature_item   : signature_item   t
   val structure_item   : structure_item   t
+
+  val eq : 'a t -> 'b t -> ('a, 'b) equality
+  val get_extension : 'a t -> 'a -> (extension * attributes) option
+  val merge_attributes : 'a t -> 'a -> attributes -> 'a
 end
 
-module V2 : sig
-  type t
-  (** Type of declared extensions. *)
+type t
+(** Type of declared extensions. *)
 
-  (** [declare name context pattern expander] declares the extension names [name] for
-      [context].
+(** [declare name context pattern expander] declares the extension names [name] for
+    [context].
 
-      [expander] is responsible for producing the code to replace the extension in the
-      AST. It receives as argument:
+    [expander] is responsible for producing the code to replace the extension in the
+    AST. It receives as argument:
 
-      - [loc]: the location of the enclosing node. For instance for expression it is the
-        [pexp_loc] field
-      - [path]: the current module path
-  *)
-  val declare
-    :  string
-    -> 'context Context.t
-    -> (payload, 'a, 'context) Ast_pattern.t
-    -> (loc:Location.t -> path:string -> 'a)
-    -> t
+    - [loc]: the location of the enclosing node. For instance for expression it is the
+      [pexp_loc] field
+    - [path]: the current module path
+*)
+val declare
+  :  string
+  -> 'context Context.t
+  -> (payload, 'a, 'context) Ast_pattern.t
+  -> (loc:Location.t -> path:string -> 'a)
+  -> t
 
-  (** Inline the result of the expansion into its parent. Only works for these contexts:
+(** Inline the result of the expansion into its parent. Only works for these contexts:
 
-      - [class_field]
-      - [class_type_field]
-      - [signature_item]
-      - [structure_item]
-  *)
-  val declare_inline
-    :  string
-    -> 'context Context.t
-    -> (payload, 'a, 'context list) Ast_pattern.t
-    -> (loc:Location.t -> path:string -> 'a)
-    -> t
+    - [class_field]
+    - [class_type_field]
+    - [signature_item]
+    - [structure_item]
+*)
+val declare_inline
+  :  string
+  -> 'context Context.t
+  -> (payload, 'a, 'context list) Ast_pattern.t
+  -> (loc:Location.t -> path:string -> 'a)
+  -> t
 
-  class map_top_down : t list -> Ast_traverse.map_with_path
+module For_context : sig
+  (** This module is used to implement {!Context_free.V1.map_top_down} *)
+
+  type 'a t
+
+  val convert
+    :  'a t list
+    -> loc:Location.t
+    -> path:string
+    -> Parsetree.extension
+    -> 'a option
+
+  val convert_inline
+    :  'a t list
+    -> loc:Location.t
+    -> path:string
+    -> Parsetree.extension
+    -> 'a list option
 end
+
+(** Given a context and a list of extension expander, returns all the ones that are for
+    this context. *)
+val filter_by_context : 'a Context.t -> t list -> 'a For_context.t list
 
 module Expert : sig
   (** This module allows to declare extensions that do not produce a value of the context
@@ -75,18 +112,23 @@ module Expert : sig
   val convert : (_, 'a) t list -> loc:Location.t -> extension -> 'a option
 end
 
-type ('context, 'payload) t = ('context, 'payload) Expert.t
-  [@@deprecated "[since 2015-11] use Expert.t instead"]
-
-val declare
-  :  string
-  -> 'context Context.t
-  -> (payload, 'a, 'b) Ast_pattern.t
-  -> 'a
-  -> ('context, 'b) Expert.t
-  [@@deprecated "[since 2015-11] use Expert.declare instead"]
-
-val convert : (_, 'a) Expert.t list -> extension -> 'a option
-  [@@deprecated "[since 2015-11] use Expert.convert instead"]
-
 val check_unused : Ast_traverse.iter
+
+module V2 : sig
+  type nonrec t = t
+  val declare
+    :  string
+    -> 'context Context.t
+    -> (payload, 'a, 'context) Ast_pattern.t
+    -> (loc:Location.t -> path:string -> 'a)
+    -> t
+  val declare_inline
+    :  string
+    -> 'context Context.t
+    -> (payload, 'a, 'context list) Ast_pattern.t
+    -> (loc:Location.t -> path:string -> 'a)
+    -> t
+end
+
+(**/**)
+val check_context_for_inline : func:string -> 'a Context.t -> unit
