@@ -1,3 +1,51 @@
+## 113.43.00
+
+- We currently reject code which contains attribute on constructor inside
+  polymorphic variant types definition.
+  The reason is that while there is a dedicated place for them in the AST, the
+  surface syntax didn't allow one to write such attributes.
+
+  This won't be true anymore once we switch to 4.03 as documentation comments
+  present in these locations get turned into attributes.
+
+- accept attributes on object types fields.
+
+- Make all ppx rewriters context free. We currently have an API for
+  context free extension expanders but other kind of transformations
+  still require a full AST traversal, even though they are all local
+  transformations.
+
+  This features adds the necessary bits to make it possible to merge all
+  the transformations in one pass. This both improve speed and
+  semantic. Speed as we do less passes, and semantic as the resulting
+  AST is completely independent of the order in which transformations
+  are listed in jbuild files.
+
+  Passes before this feature:
+
+      $ ppx.exe -print-passes
+      <builtin:freshen-and-collect-attributes>
+      <bultin:context-free>
+      type_conv
+      custom_printf
+      expect_test
+      fail
+      js_style
+      pipebang
+      <builtin:check-unused-attributes>
+      <builtin:check-unused-extensions>
+
+  After:
+
+      <builtin:freshen-and-collect-attributes>
+      <bultin:context-free>
+      js_style
+      <builtin:check-unused-attributes>
+      <builtin:check-unused-extensions>
+
+  The resulting driver is about twice faster, which might help
+  compilation speed.
+
 ## 113.24.00
 
 - Kill the nonrec rewrite done by typerep. It is no longer needed since
