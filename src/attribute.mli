@@ -122,16 +122,6 @@ val declare
 val name : _ t -> string
 val context : ('a, _) t -> 'a Context.t
 
-(** [reserve_namespace "foo"] has two implications:
-      - one can't then declare an attribute inside this namespace
-      - attributes within this namespace won't be reported by [check_unused]
-
-    This is here to insure that the rewriter cohabits well with other rewriter
-    or tools (e.g. merlin) which might leave attribute on the AST.
-
-    N.B. the "merlin" namespace is reserved by default. *)
-val reserve_namespace : string -> unit
-
 val get : ('a, 'b) t -> 'a -> 'b option
 
 (** [consume t x] returns the value associated to attribute [t] on [x] if present as well

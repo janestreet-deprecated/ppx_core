@@ -114,7 +114,7 @@ module Make(Callback : sig type 'a t end) = struct
     }
 
   let declare name context pattern k =
-    Name.Registrar.register registrar (Context.T context) name;
+    Name.Registrar.register ~kind:`Extension registrar (Context.T context) name;
     { name
     ; context
     ; payload = Payload_parser (pattern, k)
@@ -209,6 +209,8 @@ let rec filter_by_context
 ;;
 
 let fail ctx (name, _) =
+  if not (Name.Whitelisted.is_whitelisted name.Location.txt
+          || Name.Reserved_namespaces.is_in_reserved_namespaces name.txt) then
   Name.Registrar.raise_errorf registrar (Context.T ctx)
     "Extension `%s' was not translated" name
 ;;

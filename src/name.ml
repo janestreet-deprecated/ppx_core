@@ -1,6 +1,7 @@
 open StdLabels
 open MoreLabels
 
+module String_set = Set.Make(String)
 module String_map = Map.Make(String)
 
 (* set of matches for "foo.bar.blah":
@@ -44,6 +45,56 @@ let get_outer_namespace name =
   | exception Not_found -> None
   | i -> Some (String.sub name ~pos:0 ~len:i)
 
+module Whitelisted = struct
+  let list =
+    List.fold_left
+      ~f:(fun acc name -> fold_dot_suffixes name ~init:acc ~f:String_set.add)
+      ~init:String_set.empty
+      [ "ocaml.error"
+      ; "ocaml.warning"
+      ; "ocaml.ppwarning"
+      ; "ocaml.deprecated"
+      ; "ocaml.doc"
+      ; "ocaml.text"
+      ; "nonrec"
+      ]
+
+  let is_whitelisted name = String_set.mem name list
+
+  let get_list () = String_set.elements list
+end
+
+module Reserved_namespaces = struct
+  let tbl : (string, unit) Hashtbl.t = Hashtbl.create 5
+
+  let reserve ns = Hashtbl.add tbl ~key:ns ~data:()
+
+  let () = reserve "merlin"
+
+  let is_in_reserved_namespaces name =
+    match get_outer_namespace name with
+    | Some ns -> Hashtbl.mem tbl ns
+    | _ -> false
+
+  let check_not_reserved ~kind name =
+    let kind =
+      match kind with
+      | `Attribute -> "attribute"
+      | `Extension -> "extension"
+    in
+    if String_set.mem name Whitelisted.list then
+      Printf.ksprintf failwith
+        "Cannot register %s with name '%s' as it matches an \
+         %s reserved by the compiler"
+        kind name kind
+    else if is_in_reserved_namespaces name then
+      Printf.ksprintf failwith
+        "Cannot register %s with name '%s' as its namespace \
+         is marked as reserved"
+        kind name
+
+end
+
 module Registrar = struct
   type element =
     { fully_qualified_name : string
@@ -75,7 +126,8 @@ module Registrar = struct
       all_for_context
   ;;
 
-  let register t context name =
+  let register ~kind t context name =
+    Reserved_namespaces.check_not_reserved ~kind name;
     let caller = Caller_id.get ~skip:t.skip in
     let all = get_all_for_context t context in
     (match String_map.find name all.all with

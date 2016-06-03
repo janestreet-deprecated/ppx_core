@@ -1,5 +1,3 @@
-
-
 (** [matches ~pattern name] returns [true] iff [name] matches [pattern].
 
     For instance, the exact set of names such that [matches ~pattern:"foo.bar.blah" name]
@@ -35,7 +33,7 @@ module Registrar : sig
     -> string_of_context:('context -> string option)
     -> 'context t
 
-  val register : 'context t -> 'context -> string -> unit
+  val register : kind:[ `Attribute | `Extension ] -> 'context t -> 'context -> string -> unit
 
   val spellcheck :
     'context t -> 'context -> ?white_list:string list -> string -> string option
@@ -47,4 +45,24 @@ module Registrar : sig
     -> (string -> 'a, unit, string, 'c) format4
     -> string Location.loc
     -> 'a
+end
+
+module Whitelisted : sig
+  val get_list : unit -> string list
+
+  val is_whitelisted : string -> bool
+end
+
+module Reserved_namespaces : sig
+  (** [reserve "foo"] has two implications:
+        - one can't then declare an attribute inside this namespace
+        - attributes within this namespace won't be reported by [check_unused]
+
+      This is here to insure that the rewriter cohabits well with other rewriter
+      or tools (e.g. merlin) which might leave attribute on the AST.
+
+      N.B. the "merlin" namespace is reserved by default. *)
+  val reserve : string -> unit
+
+  val is_in_reserved_namespaces : string -> bool
 end

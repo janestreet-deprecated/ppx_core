@@ -12,42 +12,6 @@ module String_map = Map.Make(String)
 
    Sadly, the compiler silently ignores them if they are misplaced...
 *)
-let white_list =
-  List.fold_left
-    (fun acc name -> Name.fold_dot_suffixes name ~init:acc ~f:String_set.add)
-    String_set.empty
-    [ "ocaml.error"
-    ; "ocaml.warning"
-    ; "ocaml.ppwarning"
-    ; "ocaml.deprecated"
-    ; "ocaml.doc"
-    ; "ocaml.text"
-    ; "nonrec"
-    ]
-;;
-
-let reserved_namespaces  = ref (String_set.singleton "merlin")
-let reserve_namespace ns =
-  reserved_namespaces := String_set.add ns !reserved_namespaces
-
-let is_in_reserved_namespace name =
-  match Name.get_outer_namespace name with
-  | Some ns -> String_set.mem ns !reserved_namespaces
-  | _ -> false
-
-let check_not_reserved name =
-  if String_set.mem name white_list then
-    Printf.ksprintf failwith
-      "Cannot register attribute with name '%s' as it matches an \
-       attribute reserved by the compiler"
-      name
-  else if is_in_reserved_namespace name then
-    Printf.ksprintf failwith
-      "Cannot register attribute with name '%s' as its namespace \
-       is marked as reserved"
-      name
-;;
-
 let poly_equal a b =
   let module Poly = struct
     type t = T : _ -> t
@@ -313,8 +277,7 @@ let registrar =
 ;;
 
 let declare name context pattern k =
-  check_not_reserved name;
-  Name.Registrar.register registrar (On_item context) name;
+  Name.Registrar.register ~kind:`Attribute registrar (On_item context) name;
   { name
   ; context
   ; payload = Ast_pattern.Packed.create pattern k
@@ -430,8 +393,7 @@ module Floating = struct
     }
 
   let declare name context pattern k =
-    check_not_reserved name;
-    Name.Registrar.register registrar (Floating context) name;
+    Name.Registrar.register ~kind:`Attribute registrar (Floating context) name;
     { name; context; payload = Ast_pattern.Packed.create pattern k }
   ;;
 
@@ -453,10 +415,10 @@ module Floating = struct
 end
 
 let check_attribute registrar context name =
-  if not (String_set.mem name.txt white_list
-          || is_in_reserved_namespace name.txt)
+  if not (Name.Whitelisted.is_whitelisted name.txt
+          || Name.Reserved_namespaces.is_in_reserved_namespaces name.txt)
   && Phys_table.mem not_seen name.txt then
-    let white_list = String_set.elements white_list in
+    let white_list = Name.Whitelisted.get_list () in
     Name.Registrar.raise_errorf registrar context ~white_list
       "Attribute `%s' was not used" name
 ;;
