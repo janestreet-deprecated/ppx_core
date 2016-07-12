@@ -121,57 +121,61 @@ module Gen(M : sig val fixed_loc : bool end) = struct
   open M
 
   let gen_combinator_for_constructor ~wrapper:(wpath, wprefix, has_attrs) path ~prefix cd =
-    let args =
-      List.mapi cd.cd_args ~f:(fun i _ -> sprintf "x%d" i)
-    in
-    let exp =
-      Exp.construct (Loc.mk (fqn_longident path cd.cd_id))
-        (match args with
-         | []  -> None
-         | [x] -> Some (evar x)
-         | _   -> Some (Exp.tuple (List.map args ~f:evar)))
-    in
-    let body =
-      let fields =
-        [ ( Loc.mk (fqn_longident' wpath (wprefix ^ "loc"))
-          , evar "loc"
-          )
-        ; ( Loc.mk (fqn_longident' wpath (wprefix ^ "desc"))
-          , exp
-          )
-        ]
+    match cd.cd_args with
+    | Cstr_record _ ->
+      failwith "Cstr_record not supported"
+    | Cstr_tuple cd_args ->
+      let args =
+        List.mapi cd_args ~f:(fun i _ -> sprintf "x%d" i)
       in
-      let fields =
-        if has_attrs then
-          ( Loc.mk (fqn_longident' wpath (wprefix ^ "attributes"))
-          , [%expr []]
-          )
-          :: fields
+      let exp =
+        Exp.construct (Loc.mk (fqn_longident path cd.cd_id))
+          (match args with
+           | []  -> None
+           | [x] -> Some (evar x)
+           | _   -> Some (Exp.tuple (List.map args ~f:evar)))
+      in
+      let body =
+        let fields =
+          [ ( Loc.mk (fqn_longident' wpath (wprefix ^ "loc"))
+            , evar "loc"
+            )
+          ; ( Loc.mk (fqn_longident' wpath (wprefix ^ "desc"))
+            , exp
+            )
+          ]
+        in
+        let fields =
+          if has_attrs then
+            ( Loc.mk (fqn_longident' wpath (wprefix ^ "attributes"))
+            , [%expr []]
+            )
+            :: fields
+          else
+            fields
+        in
+        Exp.record fields None
+      in
+      let body =
+  (*      match args with
+        | [] -> [%expr fun () -> [%e body]]
+        | _ ->*)
+          List.fold_right args ~init:body ~f:(fun arg acc ->
+            [%expr fun [%p pvar arg] -> [%e acc]])
+      in
+  (*    let body =
+        if not has_attrs then
+          body
         else
-          fields
+          [%expr fun ?(attrs=[]) -> [%e body]]
+      in*)
+      let body =
+        if fixed_loc then
+          body
+        else
+          [%expr fun ~loc -> [%e body]]
       in
-      Exp.record fields None
-    in
-    let body =
-(*      match args with
-      | [] -> [%expr fun () -> [%e body]]
-      | _ ->*)
-        List.fold_right args ~init:body ~f:(fun arg acc ->
-          [%expr fun [%p pvar arg] -> [%e acc]])
-    in
-(*    let body =
-      if not has_attrs then
-        body
-      else
-        [%expr fun ?(attrs=[]) -> [%e body]]
-    in*)
-    let body =
-      if fixed_loc then
-        body
-      else
-        [%expr fun ~loc -> [%e body]]
-    in
-    [%stri let [%p pvar (function_name_of_id ~prefix cd.cd_id)] = [%e body]]
+      [%stri let [%p pvar (function_name_of_id ~prefix cd.cd_id)] = [%e body]]
   ;;
 
   let gen_combinator_for_record path ~prefix lds =
@@ -189,10 +193,10 @@ module Gen(M : sig val fixed_loc : bool end) = struct
     let body =
       let l = List.filter funcs ~f:(fun f -> f <> "loc" && f <> "attributes") in
       match l with
-      | [x] -> Exp.fun_ "" None (pvar x) body
+      | [x] -> Exp.fun_ Nolabel None (pvar x) body
       | _ ->
         List.fold_right l ~init:body ~f:(fun func acc ->
-          Exp.fun_ func None (pvar func) acc
+          Exp.fun_ (Labelled func) None (pvar func) acc
         )
     in
 (*    let body =

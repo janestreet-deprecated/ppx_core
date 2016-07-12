@@ -1,4 +1,5 @@
 open Types
+open Asttypes
 open Ast_helper
 
 let loc =
@@ -19,11 +20,11 @@ let pvar v = Pat.var (Loc.mk ~loc v)
 class type what = object
   method name : string
 
-  method class_params : (Parsetree.core_type * Asttypes.variance) list
+  method class_params : (Parsetree.core_type * variance) list
 
   method apply
     :  Parsetree.expression
-    -> (string * Parsetree.expression) list
+    -> (arg_label * Parsetree.expression) list
     -> Parsetree.expression
 
   method abstract
@@ -49,9 +50,9 @@ let mapper : what = object
   method class_params = []
 
   method apply expr args = Exp.apply expr args
-  method abstract patt expr = Exp.fun_ "" None patt expr
+  method abstract patt expr = Exp.fun_ Nolabel None patt expr
 
-  method typ ty = Typ.arrow "" ty ty
+  method typ ty = Typ.arrow Nolabel ty ty
 
   method array  = [%expr Array.map]
   method any    = [%expr fun x -> x]
@@ -68,7 +69,7 @@ let iterator : what = object
   method class_params = []
 
   method apply expr args = Exp.apply expr args
-  method abstract patt expr = Exp.fun_ "" None patt expr
+  method abstract patt expr = Exp.fun_ Nolabel None patt expr
 
   method typ ty = [%type: [%t ty] -> unit]
   method array  = [%expr Array.iter]
@@ -86,10 +87,11 @@ end
 let folder : what = object
   method name = "fold"
 
-  method class_params = [(Typ.var "acc", Asttypes.Invariant)]
+  method class_params = [(Typ.var "acc", Invariant)]
 
-  method apply expr args = Exp.apply expr (args @ [("", evar "acc")])
-  method abstract patt expr = Exp.fun_ "" None patt (Exp.fun_ "" None (pvar "acc") expr)
+  method apply expr args = Exp.apply expr (args @ [(Nolabel, evar "acc")])
+  method abstract patt expr =
+    Exp.fun_ Nolabel None patt (Exp.fun_ Nolabel None (pvar "acc") expr)
 
   method typ ty = [%type: [%t ty] -> 'acc -> 'acc]
   method array =
@@ -119,10 +121,11 @@ end
 let fold_mapper : what = object
   method name = "fold_map"
 
-  method class_params = [(Typ.var "acc", Asttypes.Invariant)]
+  method class_params = [(Typ.var "acc", Invariant)]
 
-  method apply expr args = Exp.apply expr (args @ [("", evar "acc")])
-  method abstract patt expr = Exp.fun_ "" None patt (Exp.fun_ "" None (pvar "acc") expr)
+  method apply expr args = Exp.apply expr (args @ [(Nolabel, evar "acc")])
+  method abstract patt expr =
+    Exp.fun_ Nolabel None patt (Exp.fun_ Nolabel None (pvar "acc") expr)
 
   method typ ty = [%type: [%t ty] -> 'acc -> [%t ty] * 'acc]
   method array =
@@ -178,14 +181,14 @@ let mapper_with_context : what =
   object
     method name = "map_with_context"
 
-    method class_params = [(Typ.var "ctx", Asttypes.Invariant)]
+    method class_params = [(Typ.var "ctx", Invariant)]
 
-    method apply expr args = Exp.apply expr (("", evar "ctx") :: args)
+    method apply expr args = Exp.apply expr ((Nolabel, evar "ctx") :: args)
     method abstract patt expr =
       if uses_ctx expr then
-        Exp.fun_ "" None (pvar "ctx") (Exp.fun_ "" None patt expr)
+        Exp.fun_ Nolabel None (pvar "ctx") (Exp.fun_ Nolabel None patt expr)
       else
-        Exp.fun_ "" None (pvar "_ctx") (Exp.fun_ "" None patt expr)
+        Exp.fun_ Nolabel None (pvar "_ctx") (Exp.fun_ Nolabel None patt expr)
 
     method typ ty = [%type: 'ctx -> [%t ty] -> [%t ty]]
     method array = [%expr fun ctx a -> Array.map (f ctx) a]
@@ -219,7 +222,7 @@ let mapper_type ~(what:what) path td =
   let ty = Typ.constr (Loc.mk ~loc (longident_of_path path)) params in
   let ty =
     List.fold_right
-      (fun param ty -> Typ.arrow "" (what#typ param) ty)
+      (fun param ty -> Typ.arrow Nolabel (what#typ param) ty)
       params (what#typ ty)
   in
   Typ.poly vars ty
@@ -244,7 +247,8 @@ let rec type_expr_mapper ~(what:what) ~all_types ~var_mappers te =
       | _ ->
         Exp.apply map
           (List.map
-             (fun te -> ("", type_expr_mapper ~what ~all_types ~var_mappers te))
+             (fun te ->
+               (Nolabel, type_expr_mapper ~what ~all_types ~var_mappers te))
              params)
     else
       what#any
@@ -263,11 +267,12 @@ and map_variables ~(what:what) ~all_types ~var_mappers vars tes =
   List.map2
     (fun te var ->
        (var,
-        what#apply (type_expr_mapper ~what ~all_types ~var_mappers te) [("", evar var)]))
+        what#apply (type_expr_mapper ~what ~all_types ~var_mappers te)
+          [(Nolabel, evar var)]))
     tes vars
 ;;
 
-let gen_record ~(what:what) ~all_types ~var_mappers lds =
+let gen_record' ~(what:what) ~all_types ~var_mappers lds =
   let vars = List.map (fun ld -> Ident.name ld.ld_id) lds in
   let deconstruct =
     Pat.record
@@ -284,30 +289,47 @@ let gen_record ~(what:what) ~all_types ~var_mappers lds =
       vars
       (List.map (fun ld -> ld.ld_type) lds)
   in
+  deconstruct, reconstruct, mappers
+;;
+
+let gen_record ~(what:what) ~all_types ~var_mappers lds =
+  let deconstruct, reconstruct, mappers =
+    gen_record' ~what ~all_types ~var_mappers lds
+  in
   what#abstract deconstruct (what#combine mappers ~reconstruct)
+;;
 
 let gen_variant ~(what:what) ~all_types ~var_mappers cds =
   let cases =
     List.map
       (fun cd ->
-         let vars = vars_of_list cd.cd_args in
          let cstr = Loc.mk ~loc (lident (Ident.name cd.cd_id)) in
-         let deconstruct =
-           Pat.construct cstr
-             (match vars with
-              | [] -> None
-              | _ -> Some (Pat.tuple (List.map pvar vars)))
-         in
-         let reconstruct =
-           Exp.construct cstr
-             (match vars with
-              | [] -> None
-              | _ -> Some (Exp.tuple (List.map evar vars)))
-         in
-         let mappers =
-           map_variables ~what ~all_types ~var_mappers vars cd.cd_args
-         in
-         Exp.case deconstruct (what#combine mappers ~reconstruct))
+         match cd.cd_args with
+         | Cstr_tuple args ->
+           let vars = vars_of_list args in
+           let deconstruct =
+             Pat.construct cstr
+               (match vars with
+                | [] -> None
+                | _ -> Some (Pat.tuple (List.map pvar vars)))
+           in
+           let reconstruct =
+             Exp.construct cstr
+               (match vars with
+                | [] -> None
+                | _ -> Some (Exp.tuple (List.map evar vars)))
+           in
+           let mappers =
+             map_variables ~what ~all_types ~var_mappers vars args
+           in
+           Exp.case deconstruct (what#combine mappers ~reconstruct)
+         | Cstr_record labels ->
+           let deconstruct, reconstruct, mappers =
+             gen_record' ~what ~all_types ~var_mappers labels
+           in
+           let deconstruct = Pat.construct cstr (Some deconstruct) in
+           let reconstruct = Exp.construct cstr (Some reconstruct) in
+           Exp.case deconstruct (what#combine mappers ~reconstruct))
       cds
   in
   what#abstract (pvar "x") (Exp.match_ (evar "x") cases)
@@ -333,7 +355,7 @@ let gen_mapper ~(what:what) ~all_types path td =
         | Some te -> type_expr_mapper ~what ~all_types ~var_mappers te
     in
     List.fold_right
-      (fun (_, v) acc -> Exp.fun_ "" None (pvar v) acc)
+      (fun (_, v) acc -> Exp.fun_ Nolabel None (pvar v) acc)
       var_mappers body
   end
 ;;

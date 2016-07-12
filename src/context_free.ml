@@ -208,16 +208,6 @@ let rev_concat = function
   | l -> List.concat (List.rev l)
 ;;
 
-let get_rec_flag tds : Asttypes.rec_flag =
-  let has_nonrec (td : Parsetree.type_declaration) =
-    List.exists td.ptype_attributes ~f:(fun (name, _) -> name.Location.txt = "nonrec")
-  in
-  if List.exists tds ~f:has_nonrec then
-    Nonrecursive
-  else
-    Recursive
-;;
-
 let sort_attr_group_inline l =
   List.sort l ~cmp:(fun a b ->
     String.compare
@@ -400,8 +390,7 @@ class map_top_down rules =
               assert_no_attributes attrs;
               self#structure path (items @ rest)
           end
-        | Pstr_type tds ->
-          let rf = get_rec_flag tds in
+        | Pstr_type(rf, tds) ->
           let tds, extra_items =
             List.fold_left attr_str_type_decls ~init:(tds, [])
               ~f:(fun (tds, generated_items) (Rule.Attr_group_inline.T group) ->
@@ -413,7 +402,7 @@ class map_top_down rules =
                   in
                   (tds, extra_items :: generated_items))
           in
-          let item = { item with pstr_desc = Pstr_type tds } in
+          let item = { item with pstr_desc = Pstr_type(rf, tds) } in
           let rest = rev_concat (rest :: extra_items) in
           let item = super#structure_item path item in
           let rest = self#structure path rest in
@@ -469,8 +458,7 @@ class map_top_down rules =
               assert_no_attributes attrs;
               self#signature path (items @ rest)
           end
-        | Psig_type tds ->
-          let rf = get_rec_flag tds in
+        | Psig_type(rf, tds) ->
           let tds, extra_items =
             List.fold_left attr_sig_type_decls ~init:(tds, [])
               ~f:(fun (tds, generated_items) (Rule.Attr_group_inline.T group) ->
@@ -482,7 +470,7 @@ class map_top_down rules =
                   in
                   (tds, extra_items :: generated_items))
           in
-          let item = { item with psig_desc = Psig_type tds } in
+          let item = { item with psig_desc = Psig_type(rf, tds) } in
           let rest = rev_concat (rest :: extra_items) in
           let item = super#signature_item path item in
           let rest = self#signature path rest in

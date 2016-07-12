@@ -16,7 +16,7 @@ let combinator_type_of_type_declaration td ~f =
   List.fold_right
     (fun (tp, _variance) acc ->
       let loc = tp.ptyp_loc in
-      ptyp_arrow ~loc "" (f ~loc tp) acc)
+      ptyp_arrow ~loc Nolabel (f ~loc tp) acc)
     td.ptype_params
     result_type
 ;;
@@ -74,7 +74,9 @@ let type_is_recursive short_circuit type_names = object(self)
 
   method! constructor_declaration cd =
     (* Don't recurse through cd.pcd_res *)
-    List.iter (fun ty -> self#core_type ty) cd.pcd_args
+    match cd.pcd_args with
+    | Pcstr_tuple args -> List.iter self#core_type args
+    | Pcstr_record fields -> List.iter self#label_declaration fields
 end
 
 let types_are_recursive ?(stop_on_functions = true) ?(short_circuit = fun _ -> None)
@@ -110,6 +112,8 @@ let loc_of_payload (name, payload) =
   match payload with
   | PStr []          -> name.loc
   | PStr (x :: l)    -> { x.pstr_loc with loc_end = (last x l).pstr_loc.loc_end }
+  | PSig []          -> name.loc
+  | PSig (x :: l)    -> { x.psig_loc with loc_end = (last x l).psig_loc.loc_end }
   | PTyp t           -> t.ptyp_loc
   | PPat (x, None)   -> x.ppat_loc
   | PPat (x, Some e) -> { x.ppat_loc with loc_end = e.pexp_loc.loc_end }

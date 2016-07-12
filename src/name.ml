@@ -46,6 +46,14 @@ let get_outer_namespace name =
   | i -> Some (String.sub name ~pos:0 ~len:i)
 
 module Whitelisted = struct
+  (* White list the following attributes, as well as all their dot suffixes.
+
+     Since these attributes are interpreted by the compiler itself, we cannot check
+     at the level of a ppx rewriter that they have been properly interpreted, so
+     we just accept them anywhere.
+
+     Sadly, the compiler silently ignores them if they are misplaced...
+  *)
   let list =
     List.fold_left
       ~f:(fun acc name -> fold_dot_suffixes name ~init:acc ~f:String_set.add)
@@ -57,6 +65,14 @@ module Whitelisted = struct
       ; "ocaml.doc"
       ; "ocaml.text"
       ; "nonrec"
+      ; "ocaml.noalloc"
+      ; "ocaml.unboxed"
+      ; "ocaml.untagged"
+      ; "ocaml.inline"
+      ; "ocaml.inlined"
+      ; "ocaml.specialise"
+      ; "ocaml.specialised"
+      ; "ocaml.unroll"
       ]
 
   let is_whitelisted name = String_set.mem name list

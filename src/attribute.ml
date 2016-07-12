@@ -4,14 +4,6 @@ open Parsetree
 module String_set = Set.Make(String)
 module String_map = Map.Make(String)
 
-(* White list the following attributes, as well as all their dot suffixes.
-
-   Since these attributes are interpreted by the compiler itself, we cannot check at the
-   level of a ppx rewriter that they have been properly interpreted, so we just accept
-   them anywhere.
-
-   Sadly, the compiler silently ignores them if they are misplaced...
-*)
 let poly_equal a b =
   let module Poly = struct
     type t = T : _ -> t
