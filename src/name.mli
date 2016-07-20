@@ -48,9 +48,10 @@ module Registrar : sig
 end
 
 module Whitelisted : sig
-  val get_list : unit -> string list
+  val get_attribute_list : unit -> string list
+  val get_extension_list : unit -> string list
 
-  val is_whitelisted : string -> bool
+  val is_whitelisted : kind:[ `Attribute | `Extension ] -> string -> bool
 end
 
 module Reserved_namespaces : sig

@@ -407,10 +407,10 @@ module Floating = struct
 end
 
 let check_attribute registrar context name =
-  if not (Name.Whitelisted.is_whitelisted name.txt
+  if not (Name.Whitelisted.is_whitelisted ~kind:`Attribute name.txt
           || Name.Reserved_namespaces.is_in_reserved_namespaces name.txt)
   && Phys_table.mem not_seen name.txt then
-    let white_list = Name.Whitelisted.get_list () in
+    let white_list = Name.Whitelisted.get_attribute_list () in
     Name.Registrar.raise_errorf registrar context ~white_list
       "Attribute `%s' was not used" name
 ;;

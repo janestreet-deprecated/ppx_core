@@ -209,7 +209,7 @@ let rec filter_by_context
 ;;
 
 let fail ctx (name, _) =
-  if not (Name.Whitelisted.is_whitelisted name.Location.txt
+  if not (Name.Whitelisted.is_whitelisted ~kind:`Extension name.Location.txt
           || Name.Reserved_namespaces.is_in_reserved_namespaces name.txt) then
   Name.Registrar.raise_errorf registrar (Context.T ctx)
     "Extension `%s' was not translated" name

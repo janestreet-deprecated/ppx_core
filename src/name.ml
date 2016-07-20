@@ -54,17 +54,19 @@ module Whitelisted = struct
 
      Sadly, the compiler silently ignores them if they are misplaced...
   *)
-  let list =
+ let create_set fully_qualified_names =
     List.fold_left
       ~f:(fun acc name -> fold_dot_suffixes name ~init:acc ~f:String_set.add)
       ~init:String_set.empty
-      [ "ocaml.error"
-      ; "ocaml.warning"
+      fully_qualified_names
+
+ let attributes =
+   create_set
+      [ "ocaml.warning"
       ; "ocaml.ppwarning"
       ; "ocaml.deprecated"
       ; "ocaml.doc"
       ; "ocaml.text"
-      ; "nonrec"
       ; "ocaml.noalloc"
       ; "ocaml.unboxed"
       ; "ocaml.untagged"
@@ -75,9 +77,25 @@ module Whitelisted = struct
       ; "ocaml.unroll"
       ]
 
-  let is_whitelisted name = String_set.mem name list
+  (* White list the following extensions.
 
-  let get_list () = String_set.elements list
+     Since these extensions are interpreted by the compiler itself, we cannot check
+     at the level of a ppx rewriter that they have been properly interpreted, so
+     we just accept them anywhere.
+  *)
+  let extensions =
+    create_set
+      [ "ocaml.error"
+      ; "ocaml.extension_constructor"
+      ]
+
+  let is_whitelisted ~kind name =
+    match kind with
+    | `Attribute -> String_set.mem name attributes
+    | `Extension -> String_set.mem name extensions
+
+  let get_attribute_list () = String_set.elements attributes
+  let get_extension_list () = String_set.elements extensions
 end
 
 module Reserved_namespaces = struct
@@ -93,12 +111,12 @@ module Reserved_namespaces = struct
     | _ -> false
 
   let check_not_reserved ~kind name =
-    let kind =
+    let kind, list =
       match kind with
-      | `Attribute -> "attribute"
-      | `Extension -> "extension"
+      | `Attribute -> "attribute", Whitelisted.attributes
+      | `Extension -> "extension", Whitelisted.extensions
     in
-    if String_set.mem name Whitelisted.list then
+    if String_set.mem name list then
       Printf.ksprintf failwith
         "Cannot register %s with name '%s' as it matches an \
          %s reserved by the compiler"
