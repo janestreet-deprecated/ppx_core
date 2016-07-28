@@ -38,6 +38,8 @@ module type Additional_helpers = sig
 
   val eabstract : (pattern list -> expression -> expression) with_loc
 
+  val esequence : (expression list -> expression) with_loc
+
   val ppat_tuple_opt : (pattern list -> pattern option) with_loc
   val pexp_tuple_opt : (expression list -> expression option) with_loc
 

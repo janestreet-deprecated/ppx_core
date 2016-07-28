@@ -98,6 +98,12 @@ module Default = struct
     List.fold_right ps ~init:e ~f:(fun p e -> pexp_fun ~loc Asttypes.Nolabel None p e)
   ;;
 
+  let esequence ~loc el =
+    match el with
+    | [] -> eunit ~loc
+    | hd :: tl -> List.fold_left tl ~init:hd ~f:(fun acc e -> pexp_sequence ~loc acc e)
+  ;;
+
   let pconstruct cd arg = ppat_construct ~loc:cd.pcd_loc (Located.map_lident cd.pcd_name) arg
   let econstruct cd arg = pexp_construct ~loc:cd.pcd_loc (Located.map_lident cd.pcd_name) arg
 
@@ -177,6 +183,7 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
 
   let eapply e el = Default.eapply ~loc e el
   let eabstract ps e = Default.eabstract ~loc ps e
+  let esequence el = Default.esequence ~loc el
 
   let elist l = Default.elist ~loc l
   let plist l = Default.plist ~loc l
