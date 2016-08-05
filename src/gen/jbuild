@@ -1,0 +1,5 @@
+(executables
+ ((names (gen gen_ast_pattern gen_ast_builder))
+  (public_release ((build (gen gen_ast_pattern gen_ast_builder))))
+  (libraries (ocamlcommon ocamlbytecomp))
+  (preprocess ((metaquot All)))))
