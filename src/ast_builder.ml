@@ -124,6 +124,41 @@ module Default = struct
       ppat_construct ~loc (Located.mk ~loc (Longident.Lident "::"))
         (Some (ppat_tuple ~loc [x; plist ~loc l]))
   ;;
+
+  let unapplied_type_constr_conv_without_apply ~loc (ident : Longident.t) ~f =
+    match ident with
+    | Lident n -> pexp_ident ~loc { txt = Lident (f n); loc }
+    | Ldot (path, n) -> pexp_ident ~loc { txt = Ldot (path, f n); loc }
+    | Lapply _ -> Location.raise_errorf ~loc "unexpected applicative functor type"
+
+  let type_constr_conv ~loc:apply_loc { Location.loc; txt = longident } ~f args =
+    match (longident : Longident.t) with
+    | Lident _
+    | Ldot ((Lident _ | Ldot _), _)
+    | Lapply _ ->
+      let ident = unapplied_type_constr_conv_without_apply longident ~loc ~f in
+      begin match args with
+      | [] -> ident
+      | _ :: _ -> eapply ~loc:apply_loc ident args
+      end
+    | Ldot (Lapply _ as module_path, n) ->
+      let suffix_n functor_ = String.uncapitalize functor_ ^ "__" ^ n in
+      let rec gather_lapply functor_args : Longident.t -> Longident.t * _ = function
+        | Lapply (rest, arg) ->
+          gather_lapply (arg :: functor_args) rest
+        | Lident functor_ ->
+          Lident (suffix_n functor_), functor_args
+        | Ldot (functor_path, functor_) ->
+          Ldot (functor_path, suffix_n functor_), functor_args
+      in
+      let ident, functor_args = gather_lapply [] module_path in
+      eapply ~loc:apply_loc (unapplied_type_constr_conv_without_apply ident ~loc ~f)
+        (List.map functor_args ~f:(fun path ->
+           pexp_pack ~loc (pmod_ident ~loc { txt = path; loc }))
+         @ args)
+
+  let unapplied_type_constr_conv ~loc longident ~f =
+    type_constr_conv longident ~loc ~f []
 end
 
 module type Loc = Ast_builder_intf.Loc
@@ -187,6 +222,9 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
 
   let elist l = Default.elist ~loc l
   let plist l = Default.plist ~loc l
+
+  let type_constr_conv ident ~f args = Default.type_constr_conv ~loc ident ~f args
+  let unapplied_type_constr_conv ident ~f = Default.unapplied_type_constr_conv ~loc ident ~f
 end
 
 let make loc = (module Make(struct let loc = loc end) : S)

@@ -63,6 +63,20 @@ module type Additional_helpers = sig
      -> manifest:core_type option
      -> type_declaration
     ) with_loc
+
+  (** [unapplied_type_constr_conv] is the standard way to map identifiers to conversion
+      fonctions, for preprocessor that creates values that follow the structure of types.
+      More precisely, [path_conv path (sprintf "sexp_of_%s")] is:
+      - sexp_of_t if path is "t"
+      - A.B.sexp_of_foo if path is "A.B.foo"
+      - A.B.sexp_of_f__foo (module A1) (module A2) if path is "A.B.F(A1)(A2).foo"
+      [type_constr_conv] also applies it to a list of expression, which both prevents
+      the compiler from allocating useless closures, and almost always what is needed,
+      since type constructors are always applied. *)
+  val unapplied_type_constr_conv :
+    (Longident.t Location.loc -> f:(string -> string) -> expression) with_loc
+  val type_constr_conv :
+    (Longident.t Location.loc -> f:(string -> string) -> expression list -> expression) with_loc
 end
 
 module type Located = sig
