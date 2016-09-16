@@ -5,6 +5,8 @@ val lident : string -> Longident.t
 
 val core_type_of_type_declaration : type_declaration -> core_type
 
+val name_type_params_in_td : type_declaration -> type_declaration
+
 val combinator_type_of_type_declaration
   :  type_declaration
   -> f:(loc:Location.t -> core_type -> core_type)

@@ -4,7 +4,7 @@ class ['acc] fold = ['acc] Ast_traverse_fold.t
 class ['acc] fold_map = ['acc] Ast_traverse_fold_map.t
 class ['ctx] map_with_context = ['ctx] Ast_traverse_map_with_context.t
 
-let enter name path = if path = "" then name else path ^ "." ^ name
+let enter name path = if String.equal path "" then name else path ^ "." ^ name
 
 class map_with_path = object
   inherit [string] map_with_context as super

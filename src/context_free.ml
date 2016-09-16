@@ -1,4 +1,3 @@
-open! StdLabels
 open Parsetree
 open Common
 
@@ -172,14 +171,17 @@ let rec map_nodes context ts super_call get_loc path l =
 let table_of_special_functions special_functions =
   (* We expect the lookup to fail most of the time, by making the table big (and
      sparse), we make it more likely to fail quickly *)
-  let table = Hashtbl.create (max 1024 (List.length special_functions * 2)) in
+  let table =
+    Hashtbl.Poly.create ()
+      ~size:(Int.max 1024 (List.length special_functions * 2))
+  in
   List.iter special_functions ~f:(fun { Rule.Special_function. name; ident; expand } ->
     if Hashtbl.mem table ident then
       Printf.ksprintf invalid_arg
         "Context_free.V1.map_top_down: \
          %s present twice in list of special functions"
         name;
-    Hashtbl.add table ident expand);
+    Hashtbl.add_exn table ~key:ident ~data:expand);
   table
 ;;
 
@@ -286,12 +288,10 @@ class map_top_down rules =
       in
       match e.pexp_desc with
       | Pexp_apply ({ pexp_desc = Pexp_ident id; _ } as func, args) -> begin
-          (* Don't rely on exceptions, we want this code to be fast in the general case
-             where [id] is not found in the table *)
-          if not (Hashtbl.mem special_functions id.txt) then
+          match Hashtbl.find special_functions id.txt with
+          | None ->
             self#pexp_apply_without_traversing_function path e func args
-          else
-            let pattern = Hashtbl.find special_functions id.txt in
+          | Some pattern ->
             match pattern e with
             | None ->
               self#pexp_apply_without_traversing_function path e func args
@@ -299,10 +299,10 @@ class map_top_down rules =
               self#expression path e
         end
       | Pexp_ident id -> begin
-          if not (Hashtbl.mem special_functions id.txt) then
+          match Hashtbl.find special_functions id.txt with
+          | None ->
             super#expression path e
-          else
-            let pattern = Hashtbl.find special_functions id.txt in
+          | Some pattern ->
             match pattern e with
             | None ->
               super#expression path e

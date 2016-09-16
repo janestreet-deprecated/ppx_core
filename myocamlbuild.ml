@@ -37,6 +37,11 @@ let dispatch = function
 
     gen_and_mv "src/gen/gen_ast_pattern.byte" ["ast_pattern_generated.ml"];
     gen_and_mv "src/gen/gen_ast_builder.byte" ["ast_builder_generated.ml"];
+
+    let flags = S [A "-open"; A "Base"] in
+    flag ["ocamldep"; "ocaml"; "open_base"] flags;
+    flag ["compile";  "ocaml"; "open_base"] flags;
+    flag ["doc";      "ocaml"; "open_base"] flags
   | _ ->
     ()
 

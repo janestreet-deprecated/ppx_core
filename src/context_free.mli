@@ -11,7 +11,8 @@ open Parsetree
     We have some ideas to make this fully generic, but this hasn't been a priority so
     far.
 *)
-module Rule : sig type t
+module Rule : sig
+  type t
 
   (** Rewrite an extension point *)
   val extension : Extension.t -> t
