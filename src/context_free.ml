@@ -1,3 +1,4 @@
+open! StdLabels
 open Parsetree
 open Common
 
@@ -10,6 +11,7 @@ module Rule = struct
   module Attr_group_inline = struct
     type ('a, 'b, 'c) unpacked =
       { attribute : ('b, 'c) Attribute.t
+      ; expect    : bool
       ; expand    : (loc:Location.t
                      -> path:string
                      -> Asttypes.rec_flag
@@ -21,11 +23,14 @@ module Rule = struct
     type ('a, 'b) t = T : ('a, 'b, _) unpacked -> ('a, 'b) t
 
     let attr_name (T t) = Attribute.name t.attribute
+
+    let split_normal_and_expect l = List.partition l ~f:(fun (T t) -> not t.expect)
   end
 
   module Attr_inline = struct
     type ('a, 'b, 'c) unpacked =
       { attribute : ('b, 'c) Attribute.t
+      ; expect    : bool
       ; expand    : (loc:Location.t
                      -> path:string
                      -> 'b
@@ -35,6 +40,8 @@ module Rule = struct
 
     type ('a, 'b) t = T : ('a, 'b, _) unpacked -> ('a, 'b) t
     let attr_name (T t) = Attribute.name t.attribute
+
+    let split_normal_and_expect l = List.partition l ~f:(fun (T t) -> not t.expect)
   end
 
   module Special_function = struct
@@ -111,41 +118,96 @@ module Rule = struct
   ;;
 
   let attr_str_type_decl attribute expand =
-    T (Attr_str_type_decl, T { attribute; expand })
+    T (Attr_str_type_decl, T { attribute; expand; expect = false })
   ;;
 
   let attr_sig_type_decl attribute expand =
-    T (Attr_sig_type_decl, T { attribute; expand })
+    T (Attr_sig_type_decl, T { attribute; expand; expect = false })
   ;;
 
   let attr_str_type_ext attribute expand =
-    T (Attr_str_type_ext, T { attribute; expand })
+    T (Attr_str_type_ext, T { attribute; expand; expect = false })
   ;;
 
   let attr_sig_type_ext attribute expand =
-    T (Attr_sig_type_ext, T { attribute; expand })
+    T (Attr_sig_type_ext, T { attribute; expand; expect = false })
   ;;
 
   let attr_str_exception attribute expand =
-    T (Attr_str_exception, T { attribute; expand })
+    T (Attr_str_exception, T { attribute; expand; expect = false })
   ;;
 
   let attr_sig_exception attribute expand =
-    T (Attr_sig_exception, T { attribute; expand })
+    T (Attr_sig_exception, T { attribute; expand; expect = false })
+  ;;
+
+  let attr_str_type_decl_expect attribute expand =
+    T (Attr_str_type_decl, T { attribute; expand; expect = true })
+  ;;
+
+  let attr_sig_type_decl_expect attribute expand =
+    T (Attr_sig_type_decl, T { attribute; expand; expect = true })
+  ;;
+
+  let attr_str_type_ext_expect attribute expand =
+    T (Attr_str_type_ext, T { attribute; expand; expect = true })
+  ;;
+
+  let attr_sig_type_ext_expect attribute expand =
+    T (Attr_sig_type_ext, T { attribute; expand; expect = true })
+  ;;
+
+  let attr_str_exception_expect attribute expand =
+    T (Attr_str_exception, T { attribute; expand; expect = true })
+  ;;
+
+  let attr_sig_exception_expect attribute expand =
+    T (Attr_sig_exception, T { attribute; expand; expect = true })
   ;;
 end
 
-let rec map_node context ts super_call loc path x =
+module Generated_code_hook = struct
+  type 'a single_or_many =
+    | Single of 'a
+    | Many   of 'a list
+
+  type t =
+    { f : 'a. 'a Extension.Context.t -> Location.t -> 'a single_or_many -> unit }
+
+  let nop = { f = (fun _ _ _ -> ()) }
+
+  let replace t context loc x = t.f context loc x
+  let insert_after t context (loc : Location.t) x =
+    match x with
+    | Many [] -> ()
+    | _ -> t.f context { loc with loc_start = loc.loc_end } x
+end
+
+let rec map_node_rec context ts super_call loc path x =
   match EC.get_extension context x with
   | None -> super_call path x
   | Some (ext, attrs) ->
     match E.For_context.convert ts ~loc ~path ext with
     | None -> super_call path x
     | Some x ->
-      map_node context ts super_call loc path (EC.merge_attributes context x attrs)
+      map_node_rec context ts super_call loc path (EC.merge_attributes context x attrs)
 ;;
 
-let rec map_nodes context ts super_call get_loc path l =
+let map_node context ts super_call loc path x ~hook =
+  match EC.get_extension context x with
+  | None -> super_call path x
+  | Some (ext, attrs) ->
+    match E.For_context.convert ts ~loc ~path ext with
+    | None -> super_call path x
+    | Some x ->
+      let generated_code =
+        map_node_rec context ts super_call loc path (EC.merge_attributes context x attrs)
+      in
+      Generated_code_hook.replace hook context loc (Single generated_code);
+      generated_code
+;;
+
+let rec map_nodes context ts super_call get_loc path l ~hook ~in_generated_code =
   match l with
   | [] -> []
   | x :: l ->
@@ -154,34 +216,41 @@ let rec map_nodes context ts super_call get_loc path l =
       (* These two lets force the evaluation order, so that errors are reported in the
          same order as they appear in the source file. *)
       let x = super_call path x in
-      let l = map_nodes context ts super_call get_loc path l in
+      let l = map_nodes context ts super_call get_loc path l ~hook ~in_generated_code in
       x :: l
     | Some (ext, attrs) ->
       let loc = get_loc x in
       match E.For_context.convert_inline ts ~loc ~path ext with
       | None ->
         let x = super_call path x in
-        let l = map_nodes context ts super_call get_loc path l in
+        let l =
+          map_nodes context ts super_call get_loc path l ~hook ~in_generated_code
+        in
         x :: l
       | Some x ->
         assert_no_attributes attrs;
-        map_nodes context ts super_call get_loc path (x @ l)
-;;
+        let generated_code =
+          map_nodes context ts super_call get_loc path x ~hook
+            ~in_generated_code:true
+        in
+        if not in_generated_code then
+          Generated_code_hook.replace hook context loc (Many generated_code);
+        generated_code
+        @ map_nodes context ts super_call get_loc path l ~hook ~in_generated_code
+
+let map_nodes = map_nodes ~in_generated_code:false
 
 let table_of_special_functions special_functions =
   (* We expect the lookup to fail most of the time, by making the table big (and
      sparse), we make it more likely to fail quickly *)
-  let table =
-    Hashtbl.Poly.create ()
-      ~size:(Int.max 1024 (List.length special_functions * 2))
-  in
+  let table = Hashtbl.create (max 1024 (List.length special_functions * 2)) in
   List.iter special_functions ~f:(fun { Rule.Special_function. name; ident; expand } ->
     if Hashtbl.mem table ident then
       Printf.ksprintf invalid_arg
         "Context_free.V1.map_top_down: \
          %s present twice in list of special functions"
         name;
-    Hashtbl.add_exn table ~key:ident ~data:expand);
+    Hashtbl.add table ident expand);
   table
 ;;
 
@@ -200,6 +269,17 @@ let rec consume_group attr l =
     | Some (x, value), Some (l, vals) ->
       Some ((x :: l),
             (Some value :: vals))
+;;
+
+let rec get_group attr l =
+  match l with
+  | [] -> None
+  | x :: l ->
+    match Attribute.get attr x, get_group attr l with
+    | None       , None      -> None
+    | None       , Some vals -> Some (None :: vals)
+    | Some value , None      -> Some (Some value :: List.map l ~f:(fun _ -> None))
+    | Some value , Some vals -> Some (Some value :: vals)
 ;;
 
 (* Same as [List.rev] then [List.concat] but expecting the input to be of length <= 2 *)
@@ -222,7 +302,61 @@ let sort_attr_inline l =
       (Rule.Attr_inline.attr_name a)
       (Rule.Attr_inline.attr_name b))
 
-class map_top_down rules =
+(* Return the list of items with matching attributes removed as well as code generated
+   from the rules.
+
+   This complexity is horrible, but in practice we don't care as [attrs] is always a list
+   of one element; it only has [@@deriving].
+*)
+let handle_attr_group_inline attrs rf items ~loc ~path =
+  List.fold_left attrs ~init:(items, [])
+    ~f:(fun (items, generated_items) (Rule.Attr_group_inline.T group) ->
+      match consume_group group.attribute items with
+      | None -> (items, generated_items)
+      | Some (items, values) ->
+        let extra_items = group.expand ~loc ~path rf items values in
+        (items, extra_items :: generated_items))
+
+let handle_attr_inline attrs item ~loc ~path =
+  List.fold_left attrs ~init:(item, [])
+    ~f:(fun (item, generated_items) (Rule.Attr_inline.T a) ->
+      match Attribute.consume a.attribute item with
+      | None -> (item, generated_items)
+      | Some (item, value) ->
+        let extra_items = a.expand ~loc ~path item value in
+        (item, extra_items :: generated_items))
+
+(* Same but for expect attributes. We don't remove matching attributes as the goal is to
+   get a quine. *)
+let handle_attr_group_expect attrs rf items ~loc ~path =
+  List.fold_left attrs ~init:[]
+    ~f:(fun acc (Rule.Attr_group_inline.T group) ->
+      match get_group group.attribute items with
+      | None -> acc
+      | Some values ->
+        let expect_items = group.expand ~loc ~path rf items values in
+        expect_items :: acc)
+
+let handle_attr_expect attrs item ~loc ~path =
+  List.fold_left attrs ~init:[]
+    ~f:(fun acc (Rule.Attr_inline.T a) ->
+      match Attribute.get a.attribute item with
+      | None -> acc
+      | Some value ->
+        let expect_items = a.expand ~loc ~path item value in
+        expect_items :: acc)
+
+module Expect_mismatch_handler = struct
+  type t =
+    { f : 'a. 'a Attribute.Floating.Context.t -> Location.t -> 'a list -> unit }
+
+  let nop = { f = fun _ _ _ -> () }
+end
+
+class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
+        ?(generated_code_hook=Generated_code_hook.nop) rules =
+  let hook = generated_code_hook in
+
   let special_functions =
     Rule.filter Special_function rules |> table_of_special_functions
   in
@@ -240,32 +374,41 @@ class map_top_down rules =
   and structure_item   = E.filter_by_context EC.structure_item   extensions
   in
 
-  let attr_str_type_decls =
+  let attr_str_type_decls, attr_str_type_decls_expect =
     Rule.filter Attr_str_type_decl rules
     |> sort_attr_group_inline
+    |> Rule.Attr_group_inline.split_normal_and_expect
   in
-  let attr_sig_type_decls =
+  let attr_sig_type_decls, attr_sig_type_decls_expect =
     Rule.filter Attr_sig_type_decl rules
     |> sort_attr_group_inline
+    |> Rule.Attr_group_inline.split_normal_and_expect
   in
 
-  let attr_str_type_exts =
+  let attr_str_type_exts, attr_str_type_exts_expect =
     Rule.filter Attr_str_type_ext rules
     |> sort_attr_inline
+    |> Rule.Attr_inline.split_normal_and_expect
   in
-  let attr_sig_type_exts =
+  let attr_sig_type_exts, attr_sig_type_exts_expect =
     Rule.filter Attr_sig_type_ext rules
     |> sort_attr_inline
+    |> Rule.Attr_inline.split_normal_and_expect
   in
 
-  let attr_str_exceptions =
+  let attr_str_exceptions, attr_str_exceptions_expect =
     Rule.filter Attr_str_exception rules
     |> sort_attr_inline
+    |> Rule.Attr_inline.split_normal_and_expect
   in
-  let attr_sig_exceptions =
+  let attr_sig_exceptions, attr_sig_exceptions_expect =
     Rule.filter Attr_sig_exception rules
     |> sort_attr_inline
+    |> Rule.Attr_inline.split_normal_and_expect
   in
+
+  let map_node  = map_node  ~hook in
+  let map_nodes = map_nodes ~hook in
 
   object(self)
     inherit Ast_traverse.map_with_path as super
@@ -288,10 +431,12 @@ class map_top_down rules =
       in
       match e.pexp_desc with
       | Pexp_apply ({ pexp_desc = Pexp_ident id; _ } as func, args) -> begin
-          match Hashtbl.find special_functions id.txt with
-          | None ->
+          (* Don't rely on exceptions, we want this code to be fast in the general case
+             where [id] is not found in the table *)
+          if not (Hashtbl.mem special_functions id.txt) then
             self#pexp_apply_without_traversing_function path e func args
-          | Some pattern ->
+          else
+            let pattern = Hashtbl.find special_functions id.txt in
             match pattern e with
             | None ->
               self#pexp_apply_without_traversing_function path e func args
@@ -299,10 +444,10 @@ class map_top_down rules =
               self#expression path e
         end
       | Pexp_ident id -> begin
-          match Hashtbl.find special_functions id.txt with
-          | None ->
+          if not (Hashtbl.mem special_functions id.txt) then
             super#expression path e
-          | Some pattern ->
+          else
+            let pattern = Hashtbl.find special_functions id.txt in
             match pattern e with
             | None ->
               super#expression path e
@@ -375,138 +520,146 @@ class map_top_down rules =
       { pcsig_self; pcsig_fields }
 
     method! structure path st =
-      match st with
-      | [] -> []
-      | item :: rest ->
-        match item.pstr_desc with
-        | Pstr_extension (ext, attrs) -> begin
-            let loc = item.pstr_loc in
-            match E.For_context.convert_inline structure_item ~loc ~path ext with
-            | None ->
-              let item = super#structure_item path item in
-              let rest = self#structure path rest in
-              item :: rest
-            | Some items ->
-              assert_no_attributes attrs;
-              self#structure path (items @ rest)
-          end
-        | Pstr_type(rf, tds) ->
-          let tds, extra_items =
-            List.fold_left attr_str_type_decls ~init:(tds, [])
-              ~f:(fun (tds, generated_items) (Rule.Attr_group_inline.T group) ->
-                match consume_group group.attribute tds with
-                | None -> (tds, generated_items)
-                | Some (tds, values) ->
-                  let extra_items =
-                    group.expand ~loc:item.pstr_loc ~path rf tds values
-                  in
-                  (tds, extra_items :: generated_items))
-          in
-          let item = { item with pstr_desc = Pstr_type(rf, tds) } in
-          let rest = rev_concat (rest :: extra_items) in
-          let item = super#structure_item path item in
-          let rest = self#structure path rest in
-          item :: rest
-        | Pstr_typext te ->
-          let te, extra_items =
-            List.fold_left attr_str_type_exts ~init:(te, [])
-              ~f:(fun (te, generated_items) (Rule.Attr_inline.T a) ->
-                match Attribute.consume a.attribute te with
-                | None -> (te, generated_items)
-                | Some (te, value) ->
-                  let extra_items = a.expand ~loc:item.pstr_loc ~path te value in
-                  (te, extra_items :: generated_items))
-          in
-          let item = { item with pstr_desc = Pstr_typext te } in
-          let rest = rev_concat (rest :: extra_items) in
-          let item = super#structure_item path item in
-          let rest = self#structure path rest in
-          item :: rest
-        | Pstr_exception ec ->
-          let ec, extra_items =
-            List.fold_left attr_str_exceptions ~init:(ec, [])
-              ~f:(fun (ec, generated_items) (Rule.Attr_inline.T a) ->
-                match Attribute.consume a.attribute ec with
-                | None -> (ec, generated_items)
-                | Some (ec, value) ->
-                  let extra_items = a.expand ~loc:item.pstr_loc ~path ec value in
-                  (ec, extra_items :: generated_items))
-          in
-          let item = { item with pstr_desc = Pstr_exception ec } in
-          let rest = rev_concat (rest :: extra_items) in
-          let item = super#structure_item path item in
-          let rest = self#structure path rest in
-          item :: rest
+      let rec with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code =
+        let item = super#structure_item path item in
+        let extra_items = loop (rev_concat extra_items) ~in_generated_code:true in
+        if not in_generated_code then
+          Generated_code_hook.insert_after hook Structure_item item.pstr_loc
+            (Many extra_items);
+        let rest = loop rest ~in_generated_code in
+        (match expect_items with
+        | [] -> ()
         | _ ->
-          let item = self#structure_item path item in
-          let rest = self#structure path rest in
-          item :: rest
+          let expected = rev_concat expect_items in
+          let pos = item.pstr_loc.loc_end in
+          Code_matcher.match_structure rest ~pos ~expected
+            ~mismatch_handler:(fun loc repl ->
+              expect_mismatch_handler.f Structure_item loc repl));
+        item :: (extra_items @ rest)
+      and loop st ~in_generated_code =
+        match st with
+        | [] -> []
+        | item :: rest ->
+          let loc = item.pstr_loc in
+          match item.pstr_desc with
+          | Pstr_extension (ext, attrs) -> begin
+              let loc = item.pstr_loc in
+              match E.For_context.convert_inline structure_item ~loc ~path ext with
+              | None ->
+                let item = super#structure_item path item in
+                let rest = self#structure path rest in
+                item :: rest
+              | Some items ->
+                assert_no_attributes attrs;
+                let items = loop items ~in_generated_code:true in
+                if not in_generated_code then
+                  Generated_code_hook.replace hook Structure_item item.pstr_loc
+                    (Many items);
+                items @ loop rest ~in_generated_code
+            end
+
+          | Pstr_type(rf, tds) ->
+            let tds, extra_items =
+              handle_attr_group_inline attr_str_type_decls rf tds ~loc ~path
+            in
+            let expect_items =
+              handle_attr_group_expect attr_str_type_decls_expect rf tds ~loc ~path
+            in
+            let item = { item with pstr_desc = Pstr_type(rf, tds) } in
+            with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code
+
+          | Pstr_typext te ->
+            let te, extra_items = handle_attr_inline attr_str_type_exts te ~loc ~path in
+            let expect_items =
+              handle_attr_expect attr_str_type_exts_expect te ~loc ~path
+            in
+            let item = { item with pstr_desc = Pstr_typext te } in
+            with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code
+
+          | Pstr_exception ec ->
+            let ec, extra_items = handle_attr_inline attr_str_exceptions ec ~loc ~path in
+            let expect_items =
+              handle_attr_expect attr_str_exceptions_expect ec ~loc ~path
+            in
+            let item = { item with pstr_desc = Pstr_exception ec } in
+            with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code
+
+          | _ ->
+            let item = self#structure_item path item in
+            let rest = self#structure path rest in
+            item :: rest
+      in
+      loop st ~in_generated_code:false
 
     method! signature path sg =
-      match sg with
-      | [] -> []
-      | item :: rest ->
-        match item.psig_desc with
-        | Psig_extension (ext, attrs) -> begin
-            let loc = item.psig_loc in
-            match E.For_context.convert_inline signature_item ~loc ~path ext with
-            | None ->
-              let item = super#signature_item path item in
-              let rest = self#signature path rest in
-              item :: rest
-            | Some items ->
-              assert_no_attributes attrs;
-              self#signature path (items @ rest)
-          end
-        | Psig_type(rf, tds) ->
-          let tds, extra_items =
-            List.fold_left attr_sig_type_decls ~init:(tds, [])
-              ~f:(fun (tds, generated_items) (Rule.Attr_group_inline.T group) ->
-                match consume_group group.attribute tds with
-                | None -> (tds, generated_items)
-                | Some (tds, values) ->
-                  let extra_items =
-                    group.expand  ~loc:item.psig_loc ~path rf tds values
-                  in
-                  (tds, extra_items :: generated_items))
-          in
-          let item = { item with psig_desc = Psig_type(rf, tds) } in
-          let rest = rev_concat (rest :: extra_items) in
-          let item = super#signature_item path item in
-          let rest = self#signature path rest in
-          item :: rest
-        | Psig_typext te ->
-          let te, extra_items =
-            List.fold_left attr_sig_type_exts ~init:(te, [])
-              ~f:(fun (te, generated_items) (Rule.Attr_inline.T a) ->
-                match Attribute.consume a.attribute te with
-                | None -> (te, generated_items)
-                | Some (te, value) ->
-                  let extra_items = a.expand ~loc:item.psig_loc ~path te value in
-                  (te, extra_items :: generated_items))
-          in
-          let item = { item with psig_desc = Psig_typext te } in
-          let rest = rev_concat (rest :: extra_items) in
-          let item = super#signature_item path item in
-          let rest = self#signature path rest in
-          item :: rest
-        | Psig_exception ec ->
-          let ec, extra_items =
-            List.fold_left attr_sig_exceptions ~init:(ec, [])
-              ~f:(fun (ec, generated_items) (Rule.Attr_inline.T a) ->
-                match Attribute.consume a.attribute ec with
-                | None -> (ec, generated_items)
-                | Some (ec, value) ->
-                  let extra_items = a.expand ~loc:item.psig_loc ~path ec value in
-                  (ec, extra_items :: generated_items))
-          in
-          let item = { item with psig_desc = Psig_exception ec } in
-          let rest = rev_concat (rest :: extra_items) in
-          let item = super#signature_item path item in
-          let rest = self#signature path rest in
-          item :: rest
+      let rec with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code =
+        let item = super#signature_item path item in
+        let extra_items = loop (rev_concat extra_items) ~in_generated_code:true in
+        if not in_generated_code then
+          Generated_code_hook.insert_after hook Signature_item item.psig_loc
+            (Many extra_items);
+        let rest = loop rest ~in_generated_code in
+        (match expect_items with
+        | [] -> ()
         | _ ->
-          let item = self#signature_item path item in
-          let rest = self#signature path rest in
-          item :: rest
+          let expected = rev_concat expect_items in
+          let pos = item.psig_loc.loc_end in
+          Code_matcher.match_signature rest ~pos ~expected
+            ~mismatch_handler:(fun loc repl ->
+              expect_mismatch_handler.f Signature_item loc repl));
+        item :: (extra_items @ rest)
+      and loop sg ~in_generated_code =
+        match sg with
+        | [] -> []
+        | item :: rest ->
+          let loc = item.psig_loc in
+          match item.psig_desc with
+          | Psig_extension (ext, attrs) -> begin
+              let loc = item.psig_loc in
+              match E.For_context.convert_inline signature_item ~loc ~path ext with
+              | None ->
+                let item = super#signature_item path item in
+                let rest = self#signature path rest in
+                item :: rest
+              | Some items ->
+                assert_no_attributes attrs;
+                let items = loop items ~in_generated_code:true in
+                if not in_generated_code then
+                  Generated_code_hook.replace hook Signature_item item.psig_loc
+                    (Many items);
+                items @ loop rest ~in_generated_code
+            end
+
+          | Psig_type(rf, tds) ->
+            let tds, extra_items =
+              handle_attr_group_inline attr_sig_type_decls rf tds ~loc ~path
+            in
+            let expect_items =
+              handle_attr_group_expect attr_sig_type_decls_expect rf tds ~loc ~path
+            in
+            let item = { item with psig_desc = Psig_type(rf, tds) } in
+            with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code
+
+          | Psig_typext te ->
+            let te, extra_items = handle_attr_inline attr_sig_type_exts te ~loc ~path in
+            let expect_items =
+              handle_attr_expect attr_sig_type_exts_expect te ~loc ~path
+            in
+            let item = { item with psig_desc = Psig_typext te } in
+            with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code
+
+          | Psig_exception ec ->
+            let ec, extra_items = handle_attr_inline attr_sig_exceptions ec ~loc ~path in
+            let expect_items =
+              handle_attr_expect attr_sig_exceptions_expect ec ~loc ~path
+            in
+            let item = { item with psig_desc = Psig_exception ec } in
+            with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code
+
+          | _ ->
+            let item = self#signature_item path item in
+            let rest = self#signature path rest in
+            item :: rest
+      in
+      loop sg ~in_generated_code:false
   end

@@ -230,6 +230,11 @@ let mapper_type ~(what:what) path td =
 
 let method_name = Common.function_name_of_path
 
+let rec follow_type te =
+  match te.desc with
+  | Tlink te | Tsubst te -> follow_type te
+  | x -> x
+
 let rec type_expr_mapper ~(what:what) ~all_types ~var_mappers te =
   match te.desc with
   | Tvar _ -> evar (List.assoc te var_mappers)
@@ -239,6 +244,13 @@ let rec type_expr_mapper ~(what:what) ~all_types ~var_mappers te =
     let reconstruct = Exp.tuple (List.map (fun s -> evar s) vars) in
     let mappers = map_variables ~what ~all_types ~var_mappers vars tes in
     what#abstract deconstruct (what#combine mappers ~reconstruct)
+  | Tconstr (Pdot (Pident id, "loc", _), [param], _) when
+      Ident.name id = "Asttypes" &&
+      match follow_type param with
+      | Tconstr (Pdot (Pident id, "t", _), [], _) when Ident.name id = "Longident" -> true
+      | _ -> false
+    ->
+    Exp.send (evar "self") "longident_loc"
   | Tconstr (path, params, _) ->
     if List.mem path all_types then
       let map = Exp.send (evar "self") (method_name path) in
@@ -368,6 +380,26 @@ let dump ~what ~ext printer x =
   Format.fprintf ppf "%a@." printer x;
   close_out oc
 
+let longident_loc_method_ty what =
+  what#typ
+    (Typ.constr ~loc (Loc.mk ~loc (Longident.Ldot (Lident "Asttypes", "loc")))
+       [Typ.constr ~loc (Loc.mk ~loc (Longident.Ldot (Lident "Longident", "t"))) []])
+
+let longident_loc_method what =
+  let mapper =
+    Exp.apply (Exp.send (evar "self") "loc")
+      [(Nolabel, Exp.send (evar "self") "longident")]
+  in
+  let mapper =
+    Exp.constraint_ mapper (longident_loc_method_ty what)
+  in
+  Cf.method_ (Loc.mk ~loc "longident_loc") Public
+    (Cf.concrete Fresh mapper)
+
+let longident_loc_method_sig what =
+  Ctf.method_ "longident_loc" Public Concrete
+    (longident_loc_method_ty what)
+
 let generate unit =
   (*  let fn = Misc.find_in_path_uncap !Config.load_path (unit ^ ".cmi") in*)
   let types = Common.get_types env unit in
@@ -375,6 +407,7 @@ let generate unit =
   List.iter
     (fun (what : what) ->
        let methods =
+         longident_loc_method what ::
          List.map
            (fun (path, td) ->
               let mapper = gen_mapper ~what ~all_types path td in
@@ -384,6 +417,7 @@ let generate unit =
            types
        in
        let method_sigs =
+         longident_loc_method_sig what ::
          List.map
            (fun (path, td) ->
               Ctf.method_ (method_name path) Public Concrete (mapper_type ~what path td))

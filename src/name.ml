@@ -1,5 +1,8 @@
-module Printexc = Caml.Printexc
-module Format   = Caml.Format
+open StdLabels
+open MoreLabels
+
+module String_set = Set.Make(String)
+module String_map = Map.Make(String)
 
 (* set of matches for "foo.bar.blah":
    - "foo.bar.blah"
@@ -7,19 +10,17 @@ module Format   = Caml.Format
    -         "blah"
 *)
 let matches ~pattern matched =
-  String.equal pattern matched || (
+  pattern = matched || (
     let len_pattern = String.length pattern in
     let len_matched = String.length matched in
     let start = len_pattern - len_matched in
-    start > 0 && Char.equal pattern.[start - 1] '.' &&
+    start > 0 && pattern.[start - 1] = '.' &&
     (
       let i = ref 0 in
       while !i < len_matched &&
-            Char.equal
-              (String.unsafe_get matched !i)
-              (String.unsafe_get pattern (start + !i))
+            String.unsafe_get matched !i = String.unsafe_get pattern (start + !i)
       do
-        i := !i + 1
+        incr i
       done;
       !i = len_matched
     )
@@ -29,8 +30,8 @@ let fold_dot_suffixes name ~init:acc ~f =
   let rec loop pos acc =
     if pos >= 0 then
       match String.rindex_from name pos '.' with
-      | None -> f name acc
-      | Some i ->
+      | exception Not_found -> f name acc
+      | i ->
         let sub_name = String.sub name ~pos:(i + 1) ~len:(String.length name - (i + 1)) in
         loop (i - 1) (f sub_name acc)
     else
@@ -41,8 +42,8 @@ let fold_dot_suffixes name ~init:acc ~f =
 
 let get_outer_namespace name =
   match String.index name '.' with
-  | None -> None
-  | Some i -> Some (String.sub name ~pos:0 ~len:i)
+  | exception Not_found -> None
+  | i -> Some (String.sub name ~pos:0 ~len:i)
 
 module Whitelisted = struct
   (* White list the following attributes, as well as all their dot suffixes.
@@ -55,8 +56,8 @@ module Whitelisted = struct
   *)
  let create_set fully_qualified_names =
     List.fold_left
-      ~f:(fun acc name -> fold_dot_suffixes name ~init:acc ~f:(fun x acc -> Set.add acc x))
-      ~init:(Set.empty (module String))
+      ~f:(fun acc name -> fold_dot_suffixes name ~init:acc ~f:String_set.add)
+      ~init:String_set.empty
       fully_qualified_names
 
  let attributes =
@@ -90,23 +91,23 @@ module Whitelisted = struct
 
   let is_whitelisted ~kind name =
     match kind with
-    | `Attribute -> Set.mem attributes name
-    | `Extension -> Set.mem extensions name
+    | `Attribute -> String_set.mem name attributes
+    | `Extension -> String_set.mem name extensions
 
-  let get_attribute_list () = Set.to_list attributes
-  let get_extension_list () = Set.to_list extensions
+  let get_attribute_list () = String_set.elements attributes
+  let get_extension_list () = String_set.elements extensions
 end
 
 module Reserved_namespaces = struct
-  let tbl = Hash_set.create (module String) ()
+  let tbl : (string, unit) Hashtbl.t = Hashtbl.create 5
 
-  let reserve ns = Hash_set.add tbl ns
+  let reserve ns = Hashtbl.add tbl ~key:ns ~data:()
 
   let () = reserve "merlin"
 
   let is_in_reserved_namespaces name =
     match get_outer_namespace name with
-    | Some ns -> Hash_set.mem tbl ns
+    | Some ns -> Hashtbl.mem tbl ns
     | _ -> false
 
   let check_not_reserved ~kind name =
@@ -115,7 +116,7 @@ module Reserved_namespaces = struct
       | `Attribute -> "attribute", Whitelisted.attributes
       | `Extension -> "extension", Whitelisted.extensions
     in
-    if Set.mem list name then
+    if String_set.mem name list then
       Printf.ksprintf failwith
         "Cannot register %s with name '%s' as it matches an \
          %s reserved by the compiler"
@@ -134,7 +135,7 @@ module Registrar = struct
     ; declared_at          : Caller_id.t
     }
 
-  type all_for_context = { mutable all : element Map.M(String).t }
+  type all_for_context = { mutable all : element String_map.t }
 
   type 'a t =
     { all_by_context    : ('a, all_for_context) Hashtbl.t
@@ -144,24 +145,28 @@ module Registrar = struct
     }
 
   let create ~kind ~current_file ~string_of_context =
-    { all_by_context = Hashtbl.Poly.create ()
-    ; skip           = [current_file; Caml.__FILE__]
+    { all_by_context = Hashtbl.create 32
+    ; skip           = [current_file; __FILE__]
     ; kind
     ; string_of_context
     }
 
   let get_all_for_context t context =
-    Hashtbl.find_or_add t.all_by_context context ~default:(fun () ->
-      { all = Map.empty (module String) })
+    match Hashtbl.find t.all_by_context context with
+    | x -> x
+    | exception Not_found ->
+      let all_for_context = { all = String_map.empty } in
+      Hashtbl.add t.all_by_context ~key:context ~data:all_for_context;
+      all_for_context
   ;;
 
   let register ~kind t context name =
     Reserved_namespaces.check_not_reserved ~kind name;
     let caller = Caller_id.get ~skip:t.skip in
     let all = get_all_for_context t context in
-    (match Map.find all.all name with
-     | None -> ()
-     | Some e ->
+    (match String_map.find name all.all with
+     | exception Not_found -> ()
+     | e ->
        let declared_at = function
          | None -> ""
          | Some (loc : Printexc.location) ->
@@ -183,20 +188,20 @@ module Registrar = struct
       }
     in
     all.all <- fold_dot_suffixes name ~init:all.all ~f:(fun name acc ->
-      Map.add acc ~key:name ~data:t);
+      String_map.add acc ~key:name ~data:t);
   ;;
 
   let spellcheck t context ?(white_list=[]) name =
     let all =
       let all = get_all_for_context t context in
-      Map.fold all.all ~init:[] ~f:(fun ~key ~data:_ acc -> key :: acc)
+      String_map.fold all.all ~init:[] ~f:(fun ~key ~data:_ acc -> key :: acc)
     in
     match Spellcheck.spellcheck (all @ white_list) name with
     | Some _ as x -> x
     | None ->
       let other_contexts =
         Hashtbl.fold t.all_by_context ~init:[] ~f:(fun ~key:ctx ~data:{ all } acc ->
-          if Polymorphic_compare.(<>) context ctx && Map.mem all name then
+          if context <> ctx && String_map.mem name all then
             match t.string_of_context ctx with
             | None -> acc
             | Some s -> (s ^ "s") :: acc

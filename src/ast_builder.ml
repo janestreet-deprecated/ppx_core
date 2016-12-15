@@ -1,3 +1,4 @@
+open StdLabels
 open Parsetree
 
 module Default = struct
@@ -25,13 +26,12 @@ module Default = struct
     | [] -> []
     | vbs -> [pstr_value ~loc rec_flag vbs]
 
-  let nonrec_type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest =
-    let td = type_declaration ~loc ~name ~params ~cstrs ~kind ~private_ ~manifest in
-    { td with ptype_attributes =
-                ({ txt = "nonrec"; loc }, PStr []) :: td.ptype_attributes }
+  let nonrec_type_declaration ~loc:_ ~name:_ ~params:_ ~cstrs:_ ~kind:_ ~private_:_
+        ~manifest:_ =
+    failwith "Ppx_core.Std.Ast_builder.nonrec_type_declaration: don't use this function"
   ;;
 
-  let eint ~loc t = pexp_constant ~loc (Pconst_integer (Int.to_string t, None))
+  let eint ~loc t = pexp_constant ~loc (Pconst_integer (string_of_int t, None))
   let echar ~loc t = pexp_constant ~loc (Pconst_char t)
   let estring ~loc t = pexp_constant ~loc (Pconst_string (t, None))
   let efloat ~loc t = pexp_constant ~loc (Pconst_float (t, None))
@@ -39,7 +39,7 @@ module Default = struct
   let eint64 ~loc t = pexp_constant ~loc (Pconst_integer (Int64.to_string t, Some 'L'))
   let enativeint ~loc t = pexp_constant ~loc (Pconst_integer (Nativeint.to_string t, Some 'n'))
 
-  let pint ~loc t = ppat_constant ~loc (Pconst_integer (Int.to_string t, None))
+  let pint ~loc t = ppat_constant ~loc (Pconst_integer (string_of_int t, None))
   let pchar ~loc t = ppat_constant ~loc (Pconst_char t)
   let pstring ~loc t = ppat_constant ~loc (Pconst_string (t, None))
   let pfloat ~loc t = ppat_constant ~loc (Pconst_float (t, None))
@@ -47,8 +47,8 @@ module Default = struct
   let pint64 ~loc t = ppat_constant ~loc (Pconst_integer (Int64.to_string t, Some 'L'))
   let pnativeint ~loc t = ppat_constant ~loc (Pconst_integer (Nativeint.to_string t, Some 'n'))
 
-  let ebool ~loc t = pexp_construct ~loc (Located.lident ~loc (Bool.to_string t)) None
-  let pbool ~loc t = ppat_construct ~loc (Located.lident ~loc (Bool.to_string t)) None
+  let ebool ~loc t = pexp_construct ~loc (Located.lident ~loc (string_of_bool t)) None
+  let pbool ~loc t = ppat_construct ~loc (Located.lident ~loc (string_of_bool t)) None
 
   let evar ~loc v = pexp_ident ~loc (Located.mk ~loc (Longident.parse v))
   let pvar ~loc v = ppat_var ~loc (Located.mk ~loc v)
@@ -80,6 +80,11 @@ module Default = struct
     match l with
     | [] -> None
     | _ :: _ -> Some (ppat_tuple ~loc l)
+
+  let ptyp_poly ~loc vars ty =
+    match vars with
+    | [] -> ty
+    | _ -> ptyp_poly ~loc vars ty
 
   let pexp_apply ~loc e el =
     match e, el with
@@ -186,6 +191,7 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
   let ptyp_tuple l = Default.ptyp_tuple ~loc l
   let pexp_tuple_opt l = Default.pexp_tuple_opt ~loc l
   let ppat_tuple_opt l = Default.ppat_tuple_opt ~loc l
+  let ptyp_poly vars ty = Default.ptyp_poly ~loc vars ty
 
   let pexp_apply e el = Default.pexp_apply ~loc e el
 

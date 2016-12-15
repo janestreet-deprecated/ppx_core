@@ -1,3 +1,5 @@
+open StdLabels
+
 let spellcheck names name =
   let cutoff =
     match String.length name with
@@ -7,7 +9,7 @@ let spellcheck names name =
     | _ -> 3
   in
   let _, suggestions =
-    List.fold_left names ~init:(Int.max_value, [])
+    List.fold_left names ~init:(max_int, [])
       ~f:(fun ((best_distance, names_at_best_distance) as acc) registered_name ->
         match Misc.edit_distance name registered_name cutoff with
         | None -> acc
@@ -19,12 +21,12 @@ let spellcheck names name =
           else
             (dist, registered_name :: names_at_best_distance))
   in
-  match List.rev suggestions |> List.filter ~f:(String.(<>) name) with
+  match List.rev suggestions |> List.filter ~f:((<>) name) with
   | [] -> None
   | last :: rev_rest ->
     Some
       (Printf.sprintf "Hint: Did you mean %s%s%s?"
          (String.concat ~sep:", " (List.rev rev_rest))
-         (if List.is_empty rev_rest then "" else " or ")
+         (if rev_rest = [] then "" else " or ")
          last)
 ;;

@@ -63,6 +63,8 @@ module type Additional_helpers = sig
      -> manifest:core_type option
      -> type_declaration
     ) with_loc
+  [@@deprecated
+    "[since 2016-10] use Nonrecursive on the P(str|sig)_type instead"]
 
   (** [unapplied_type_constr_conv] is the standard way to map identifiers to conversion
       fonctions, for preprocessor that creates values that follow the structure of types.

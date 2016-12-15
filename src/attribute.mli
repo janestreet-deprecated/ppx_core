@@ -136,7 +136,11 @@ module Floating : sig
   type ('context, 'payload) t
 
   module Context : sig
-    type 'a t
+    type 'a t =
+      | Structure_item   : structure_item   t
+      | Signature_item   : signature_item   t
+      | Class_field      : class_field      t
+      | Class_type_field : class_type_field t
 
     val structure_item   : structure_item   t
     val signature_item   : signature_item   t
@@ -150,6 +154,8 @@ module Floating : sig
     -> (Parsetree.payload, 'b, 'c) Ast_pattern.t
     -> 'b
     -> ('a, 'c) t
+
+  val name : _ t -> string
 
   val convert : ('a, 'b) t list -> 'a -> 'b option
 end

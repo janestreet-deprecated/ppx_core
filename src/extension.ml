@@ -1,4 +1,8 @@
+open StdLabels
+open MoreLabels
 open Common
+
+module String_map = Map.Make(String)
 
 type (_, _) equality = Eq : ('a, 'a) equality | Ne : (_, _) equality
 
@@ -58,7 +62,7 @@ module Context = struct
     | Pattern          , Pattern          -> Eq
     | Signature_item   , Signature_item   -> Eq
     | Structure_item   , Structure_item   -> Eq
-    | _ -> assert (Polymorphic_compare.(<>) (T a) (T b)); Ne
+    | _ -> assert (T a <> T b); Ne
 
   let get_extension : type a. a t -> a -> (extension * attributes) option = fun t x ->
     match t, x with
@@ -93,7 +97,7 @@ end
 let registrar =
   Name.Registrar.create
     ~kind:"extension"
-    ~current_file:Caml.__FILE__
+    ~current_file:__FILE__
     ~string_of_context:(fun (Context.T ctx) -> Some (Context.desc ctx))
 ;;
 

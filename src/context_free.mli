@@ -58,6 +58,11 @@ module Rule : sig
   val attr_str_type_decl : (structure_item, type_declaration, _) attr_group_inline
   val attr_sig_type_decl : (signature_item, type_declaration, _) attr_group_inline
 
+  (** The _expect variants are for producing code that is compared to what the user wrote
+      in the source code. *)
+  val attr_str_type_decl_expect : (structure_item, type_declaration, _) attr_group_inline
+  val attr_sig_type_decl_expect : (signature_item, type_declaration, _) attr_group_inline
+
   (** Same as [attr_group_inline] but for elements that are not part of a group, such as
       exceptions and type extensions *)
   type ('a, 'b, 'c) attr_inline =
@@ -72,8 +77,42 @@ module Rule : sig
   val attr_str_type_ext : (structure_item, type_extension, _) attr_inline
   val attr_sig_type_ext : (signature_item, type_extension, _) attr_inline
 
+  val attr_str_type_ext_expect : (structure_item, type_extension, _) attr_inline
+  val attr_sig_type_ext_expect : (signature_item, type_extension, _) attr_inline
+
   val attr_str_exception : (structure_item, extension_constructor, _) attr_inline
   val attr_sig_exception : (signature_item, extension_constructor, _) attr_inline
+
+  val attr_str_exception_expect : (structure_item, extension_constructor, _) attr_inline
+  val attr_sig_exception_expect : (signature_item, extension_constructor, _) attr_inline
 end
 
-class map_top_down : Rule.t list -> Ast_traverse.map_with_path
+(**/**)
+(*_ This API is not stable *)
+module Generated_code_hook : sig
+  type 'a single_or_many =
+    | Single of 'a
+    | Many   of 'a list
+
+  (*_ Hook called whenever we generate code some *)
+  type t =
+    { f : 'a. 'a Extension.Context.t -> Location.t -> 'a single_or_many -> unit }
+
+  val nop : t
+end
+
+module Expect_mismatch_handler : sig
+  type t =
+    { f : 'a. 'a Attribute.Floating.Context.t -> Location.t -> 'a list -> unit }
+
+  val nop : t
+end
+(**/**)
+
+class map_top_down
+  :  ?expect_mismatch_handler:Expect_mismatch_handler.t
+    (* default: Expect_mismatch_handler.nop *)
+    -> ?generated_code_hook:Generated_code_hook.t
+    (* default: Generated_code_hook.nop *)
+    -> Rule.t list
+    -> Ast_traverse.map_with_path

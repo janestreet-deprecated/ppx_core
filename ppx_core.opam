@@ -6,16 +6,15 @@ bug-reports: "https://github.com/janestreet/ppx_core/issues"
 dev-repo: "https://github.com/janestreet/ppx_core.git"
 license: "Apache-2.0"
 build: [
-  ["./configure" "--prefix" prefix]
-  [make]
+  ["jbuilder" "build-package" "ppx_core" "-j" jobs]
 ]
 depends: [
-  "ocamlbuild"     {build}
-  "oasis"          {build & >= "0.4"}
-  "ocamlfind"      {build & >= "1.3.2"}
-  "base"
-  "js-build-tools" {build}
-  "ppx_tools"      {>= "0.99.3"}
+  "jbuilder"
+  "ppx_tools" {>= "0.99.3"}
 ]
 available: [ ocaml-version >= "4.03.0" ]
-conflicts: [ "oasis" {= "0.4.7"} ]
+descr: "
+Standard library for ppx rewriters
+
+Part of the Jane Street's PPX rewriters collection.
+"

@@ -1,8 +1,0 @@
-version = "$(pkg_version)"
-description = "Standard library for ppx rewriters"
-requires = "base base.caml compiler-libs.common"
-archive(byte  ) = "ppx_core.cma"
-archive(native) = "ppx_core.cmxa"
-plugin(byte  ) = "ppx_core.cma"
-plugin(native) = "ppx_core.cmxs"
-exists_if = "ppx_core.cma"

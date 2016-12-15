@@ -1,7 +1,8 @@
+open StdLabels
+
 let is_prefix ~prefix x =
   let prefix_len = String.length prefix in
-  String.length x >= prefix_len &&
-  String.equal prefix (String.sub x ~pos:0 ~len:prefix_len)
+  String.length x >= prefix_len && prefix = String.sub x ~pos:0 ~len:prefix_len
 ;;
 
 let chop_prefix ~prefix x =

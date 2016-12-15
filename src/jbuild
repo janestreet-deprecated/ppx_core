@@ -1,9 +1,10 @@
 (library
  ((name ppx_core)
-  (libraries (ocamlcommon base caml))
-  (flags (-open Base :standard))
+  (libraries (compiler-libs.common))
   (public_name ppx_core)
-  (preprocess ((no_preprocessing All)))))
+  (preprocess no_preprocessing)
+  (js_of_ocaml ())
+  ))
 
 (rule
  ((targets (ast_traverse_map.ml

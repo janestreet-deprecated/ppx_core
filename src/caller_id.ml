@@ -1,16 +1,14 @@
 
 (* Small helper to find out who is the caller of a function *)
 
-module Printexc = Caml.Printexc
-
 type t = Printexc.location option
 
 let get ~skip =
-  let skip = Caml.__FILE__ :: skip in
+  let skip = __FILE__ :: skip in
   let stack = Printexc.get_callstack 16 in
   let len = Printexc.raw_backtrace_length stack in
   let rec loop pos =
-    if Int.equal pos len then
+    if pos = len then
       None
     else
       match
@@ -20,7 +18,7 @@ let get ~skip =
       with
       | None -> None
       | Some loc ->
-        if List.mem skip loc.filename then
+        if List.mem loc.filename skip then
           loop (pos + 1)
         else
           Some loc
