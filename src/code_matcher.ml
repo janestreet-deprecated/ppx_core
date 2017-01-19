@@ -1,5 +1,9 @@
-open! StdLabels
+open! Import
 open Parsetree
+
+module Format = Caml.Format
+
+module Filename = Caml.Filename
 
 let end_marker_sig =
   Attribute.Floating.declare "deriving.end" Signature_item Ast_pattern.(pstr nil) ()
@@ -60,20 +64,15 @@ struct
     | [] -> prev
     | x :: l -> last x l
 
-  let protectx x ~finally ~f =
-    match f x with
-    | y -> finally x; y
-    | exception e -> finally x; raise e
-
   let diff_asts ~generated ~round_trip =
     let with_temp_file f =
-      protectx (Filename.temp_file "ppx_core" "") ~finally:Sys.remove ~f
+      Exn.protectx (Filename.temp_file "ppx_core" "") ~finally:Caml.Sys.remove ~f
     in
     with_temp_file (fun fn1 ->
       with_temp_file (fun fn2 ->
         with_temp_file (fun out ->
           let dump fn ast =
-            protectx (open_out_bin fn) ~finally:close_out ~f:(fun oc ->
+            Out_channel.with_file fn ~f:(fun oc ->
               let ppf = Format.formatter_of_out_channel oc in
               M.dump ppf ast;
               Format.pp_print_flush ppf ())
@@ -87,19 +86,18 @@ struct
               (Filename.quote fn1) (Filename.quote fn2) (Filename.quote out)
           in
           let ok =
-            Sys.command cmd = 1 || (
+            Caml.Sys.command cmd = 1 || (
               let cmd =
                 Printf.sprintf
                   "diff --label generated --label 'generated->printed->parsed' \
                    %s %s &> %s"
                   (Filename.quote fn1) (Filename.quote fn2) (Filename.quote out)
               in
-              Sys.command cmd = 1
+              Caml.Sys.command cmd = 1
             )
           in
           if ok then
-            protectx (open_in_bin out) ~finally:close_in ~f:(fun ic ->
-              really_input_string ic (in_channel_length ic))
+            In_channel.read_all out
           else
             "<no differences produced by diff>")))
 
@@ -122,9 +120,9 @@ struct
       let loc = M.get_loc y in
       let x = remove_loc x in
       let y = remove_loc y in
-      if x <> y then begin
+      if Polymorphic_compare.(<>) x y then begin
         let round_trip = remove_loc (parse_string (Format.asprintf "%a@." M.pp x)) in
-        if x <> round_trip then
+        if Polymorphic_compare.(<>) x round_trip then
           Location.raise_errorf ~loc
             "ppx_core: the corrected code doesn't round-trip.\n\
              This is probably a bug in the OCaml printer:\n%s"

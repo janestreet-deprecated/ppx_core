@@ -1,6 +1,11 @@
+open! Import
 open Parsetree
 open Asttypes
 open Ast_builder.Default
+
+module Buffer = Caml.Buffer
+
+module Format = Caml.Format
 
 let lident x = Longident.Lident x
 
@@ -8,7 +13,7 @@ let core_type_of_type_declaration td =
   let loc = td.ptype_name.loc in
   ptyp_constr ~loc
     (Located.map lident td.ptype_name)
-    (List.map fst td.ptype_params)
+    (List.map td.ptype_params ~f:fst)
 ;;
 
 let gen_symbol_new =
@@ -22,7 +27,7 @@ let gen_symbol_new =
 let gen_symbol_old =
   let cnt = ref 0 in
   fun ?(prefix = "_x") () ->
-    incr cnt;
+    cnt := !cnt + 1;
     Printf.sprintf "%s__%03i_" prefix !cnt
 ;;
 
@@ -43,18 +48,15 @@ let name_type_params_in_td (td : type_declaration) : type_declaration =
     in
     ({ tp with ptyp_desc }, variance)
   in
-  { td with ptype_params = List.map name_param td.ptype_params  }
+  { td with ptype_params = List.map td.ptype_params ~f:name_param }
 ;;
 
 let combinator_type_of_type_declaration td ~f =
   let td = name_type_params_in_td td in
   let result_type = f ~loc:td.ptype_name.loc (core_type_of_type_declaration td) in
-  List.fold_right
-    (fun (tp, _variance) acc ->
-      let loc = tp.ptyp_loc in
-      ptyp_arrow ~loc Nolabel (f ~loc tp) acc)
-    td.ptype_params
-    result_type
+  List.fold_right td.ptype_params ~init:result_type ~f:(fun (tp, _variance) acc ->
+    let loc = tp.ptyp_loc in
+    ptyp_arrow ~loc Nolabel (f ~loc tp) acc)
 ;;
 
 let string_of_core_type ct =
@@ -79,23 +81,23 @@ let type_is_recursive short_circuit type_names = object(self)
   method! core_type ctyp =
     match short_circuit ctyp with
     | Some false -> ()
-    | Some true  -> raise_notrace Stop
+    | Some true  -> Exn.raise_without_backtrace Stop
     | None ->
       match ctyp.ptyp_desc with
-      | Ptyp_constr ({ txt = Longident.Lident id; _ }, _) when List.mem id type_names ->
+      | Ptyp_constr ({ txt = Longident.Lident id; _ }, _) when List.mem type_names id ->
         raise Stop
       | _ -> super#core_type ctyp
 
   method! constructor_declaration cd =
     (* Don't recurse through cd.pcd_res *)
     match cd.pcd_args with
-    | Pcstr_tuple args -> List.iter self#core_type args
-    | Pcstr_record fields -> List.iter self#label_declaration fields
+    | Pcstr_tuple args -> List.iter args ~f:self#core_type
+    | Pcstr_record fields -> List.iter fields ~f:self#label_declaration
 end
 
 let types_are_recursive ?(stop_on_functions = true) ?(short_circuit = fun _ -> None)
       tds =
-  let type_names = List.map (fun td -> td.ptype_name.txt) tds in
+  let type_names = List.map tds ~f:(fun td -> td.ptype_name.txt) in
   let short_circuit =
     if stop_on_functions then
       fun ty ->
@@ -106,7 +108,7 @@ let types_are_recursive ?(stop_on_functions = true) ?(short_circuit = fun _ -> N
   in
   let check = (type_is_recursive short_circuit type_names)#type_declaration in
   try
-    List.iter (fun td -> check td) tds;
+    List.iter tds ~f:(fun td -> check td);
     false
   with Stop ->
     true
@@ -136,7 +138,7 @@ let loc_of_payload (name, payload) =
 let loc_of_attribute ((name, _) as attr) =
   (* "ocaml.doc" attributes are generated with [Location.none], which is not helpful for
      error messages. *)
-  if name.loc = Location.none then
+  if Polymorphic_compare.(=) name.loc Location.none then
     loc_of_payload attr
   else
     { name.loc with loc_end = (loc_of_payload attr).loc_end }

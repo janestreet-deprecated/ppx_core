@@ -1,3 +1,6 @@
+open! Import
+
+module Printexc = Caml.Printexc
 
 (* Small helper to find out who is the caller of a function *)
 
@@ -18,7 +21,7 @@ let get ~skip =
       with
       | None -> None
       | Some loc ->
-        if List.mem loc.filename skip then
+        if List.mem skip loc.filename then
           loop (pos + 1)
         else
           Some loc

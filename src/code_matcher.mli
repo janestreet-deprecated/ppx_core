@@ -1,5 +1,7 @@
 (** Match source code against generated code *)
 
+open! Import
+
 (** Checks that the given code starts with [expected] followed by [@@@deriving.end] or
     [@@@end].
 

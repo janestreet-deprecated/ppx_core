@@ -1,3 +1,4 @@
+open! Import
 open Asttypes
 open Parsetree
 

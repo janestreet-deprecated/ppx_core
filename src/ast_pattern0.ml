@@ -1,3 +1,5 @@
+open! Import
+
 let fail loc expected =
   Location.raise_errorf ~loc "%s expected" expected
 ;;

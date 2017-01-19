@@ -1,3 +1,5 @@
+open! Import
+
 (** [matches ~pattern name] returns [true] iff [name] matches [pattern].
 
     For instance, the exact set of names such that [matches ~pattern:"foo.bar.blah" name]

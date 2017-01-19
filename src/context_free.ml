@@ -1,4 +1,4 @@
-open! StdLabels
+open! Import
 open Parsetree
 open Common
 
@@ -24,7 +24,7 @@ module Rule = struct
 
     let attr_name (T t) = Attribute.name t.attribute
 
-    let split_normal_and_expect l = List.partition l ~f:(fun (T t) -> not t.expect)
+    let split_normal_and_expect l = List.partition_tf l ~f:(fun (T t) -> not t.expect)
   end
 
   module Attr_inline = struct
@@ -41,7 +41,7 @@ module Rule = struct
     type ('a, 'b) t = T : ('a, 'b, _) unpacked -> ('a, 'b) t
     let attr_name (T t) = Attribute.name t.attribute
 
-    let split_normal_and_expect l = List.partition l ~f:(fun (T t) -> not t.expect)
+    let split_normal_and_expect l = List.partition_tf l ~f:(fun (T t) -> not t.expect)
   end
 
   module Special_function = struct
@@ -241,17 +241,23 @@ let rec map_nodes context ts super_call get_loc path l ~hook ~in_generated_code 
 let map_nodes = map_nodes ~in_generated_code:false
 
 let table_of_special_functions special_functions =
-  (* We expect the lookup to fail most of the time, by making the table big (and
-     sparse), we make it more likely to fail quickly *)
-  let table = Hashtbl.create (max 1024 (List.length special_functions * 2)) in
-  List.iter special_functions ~f:(fun { Rule.Special_function. name; ident; expand } ->
-    if Hashtbl.mem table ident then
-      Printf.ksprintf invalid_arg
-        "Context_free.V1.map_top_down: \
-         %s present twice in list of special functions"
-        name;
-    Hashtbl.add table ident expand);
-  table
+  match
+    List.map special_functions ~f:(fun { Rule.Special_function.ident; expand; _ } ->
+      (ident, expand))
+    (* We expect the lookup to fail most of the time, by making the table big (and
+       sparse), we make it more likely to fail quickly *)
+    |> Hashtbl.Poly.of_alist ~size:(max 1024 (List.length special_functions * 2))
+  with
+  | `Ok table -> table
+  | `Duplicate_key ident ->
+    Printf.ksprintf invalid_arg
+      "Context_free.V1.map_top_down: \
+       %s present twice in list of special functions"
+      (List.find_map_exn special_functions ~f:(fun r ->
+         if Polymorphic_compare.equal r.ident ident then
+           Some r.name
+         else
+           None))
 ;;
 
 let rec consume_group attr l =
@@ -431,12 +437,10 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
       in
       match e.pexp_desc with
       | Pexp_apply ({ pexp_desc = Pexp_ident id; _ } as func, args) -> begin
-          (* Don't rely on exceptions, we want this code to be fast in the general case
-             where [id] is not found in the table *)
-          if not (Hashtbl.mem special_functions id.txt) then
+          match Hashtbl.find special_functions id.txt with
+          | None ->
             self#pexp_apply_without_traversing_function path e func args
-          else
-            let pattern = Hashtbl.find special_functions id.txt in
+          | Some pattern ->
             match pattern e with
             | None ->
               self#pexp_apply_without_traversing_function path e func args
@@ -444,10 +448,10 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
               self#expression path e
         end
       | Pexp_ident id -> begin
-          if not (Hashtbl.mem special_functions id.txt) then
+          match Hashtbl.find special_functions id.txt with
+          | None ->
             super#expression path e
-          else
-            let pattern = Hashtbl.find special_functions id.txt in
+          | Some pattern ->
             match pattern e with
             | None ->
               super#expression path e

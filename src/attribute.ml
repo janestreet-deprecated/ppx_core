@@ -1,14 +1,12 @@
+open! Import
 open Asttypes
 open Parsetree
-
-module String_set = Set.Make(String)
-module String_map = Map.Make(String)
 
 let poly_equal a b =
   let module Poly = struct
     type t = T : _ -> t
   end in
-  Poly.T a = Poly.T b
+  Polymorphic_compare.equal (Poly.T a) (Poly.T b)
 ;;
 
 module Context = struct
@@ -276,10 +274,10 @@ let declare name context pattern k =
   }
 ;;
 
-module Phys_table = Hashtbl.Make(struct
+module Phys_table = Caml.Hashtbl.Make(struct
     type t = string
     let hash = Hashtbl.hash
-    let equal = ( == )
+    let equal = phys_equal
   end)
 
 let not_seen = Phys_table.create 128
@@ -337,7 +335,7 @@ let consume t x =
   match get_internal t attrs with
   | None -> None
   | Some attr ->
-    let attrs = List.filter (fun attr' -> not (attr == attr')) attrs in
+    let attrs = List.filter attrs ~f:(fun attr' -> not (phys_equal attr attr')) in
     let x = Context.set_attributes t.context x attrs in
     Some (x, convert t.payload attr)
 ;;
@@ -362,7 +360,10 @@ let remove_seen (type a) (context : a Context.t) packeds (x : a) =
     in
     loop [] packeds
   in
-  let attrs = List.filter (fun attr' -> not (List.memq attr' matched)) attrs in
+  let attrs =
+    List.filter attrs ~f:(fun attr' ->
+      not (List.mem matched attr' ~equal:phys_equal))
+  in
   Context.set_attributes context x attrs
 ;;
 
@@ -395,16 +396,16 @@ module Floating = struct
     match ts with
     | [] -> None
     | { context; _ } :: _ ->
-      assert (List.for_all (fun t -> Context.equal t.context context) ts);
+      assert (List.for_all ts ~f:(fun t -> Context.equal t.context context));
       let attr = Context.get_attribute context x in
       let name = fst attr in
-      match List.filter (fun t -> Name.matches ~pattern:t.name name.txt) ts with
+      match List.filter ts ~f:(fun t -> Name.matches ~pattern:t.name name.txt) with
       | [] -> None
       | [t] -> Some (convert t.payload attr)
       | l ->
         Location.raise_errorf ~loc:name.loc
           "Multiple match for floating attributes: %s"
-          (String.concat ", " (List.map (fun t -> t.name) l))
+          (String.concat ~sep:", " (List.map l ~f:(fun t -> t.name)))
   ;;
 end
 
@@ -429,13 +430,11 @@ let check_unused = object(self)
     match attrs with
     | [] -> node
     | _  ->
-      List.iter
-        (fun ((name, payload) as attr) ->
-           self#payload payload;
-           check_attribute registrar (On_item context) name;
-           (* If we allow the attribute to pass through, mark it as seen *)
-           mark_as_seen attr)
-        attrs;
+      List.iter attrs ~f:(fun ((name, payload) as attr) ->
+        self#payload payload;
+        check_attribute registrar (On_item context) name;
+        (* If we allow the attribute to pass through, mark it as seen *)
+        mark_as_seen attr);
       Context.set_attributes context node []
 
   method private check_floating : type a. a Floating.Context.t -> a -> a
@@ -491,7 +490,7 @@ let check_unused = object(self)
     let x =
       match x with
       | Ptyp_object (fields, closed_flag) ->
-        let fields = List.map (self#check_node Object_type_field) fields in
+        let fields = List.map fields ~f:(self#check_node Object_type_field) in
         Ptyp_object (fields, closed_flag)
       | _ -> x
     in
@@ -525,7 +524,7 @@ let freshen_and_collect = object
   method! attribute ((name, payload) as attr) =
     let loc = Common.loc_of_attribute attr in
     let payload = super#payload payload in
-    let key = Bytes.copy name.txt in
+    let key = Caml.Bytes.copy name.txt in
     let name = { name with txt = key } in
     Phys_table.add not_seen key loc;
     (name, payload)

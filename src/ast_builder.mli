@@ -1,5 +1,7 @@
 (** Helpers for build OCaml AST fragments *)
 
+open! Import
+
 (** This module is similar to the [Ast_helper] module distrubuted with OCaml but uses
     different conventions.
 

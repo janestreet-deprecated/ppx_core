@@ -1,5 +1,6 @@
 (** Context free rewriting *)
 
+open! Import
 open Parsetree
 
 (** Local rewriting rules.

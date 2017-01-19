@@ -1,14 +1,8 @@
-open StdLabels
-
-let is_prefix ~prefix x =
-  let prefix_len = String.length prefix in
-  String.length x >= prefix_len && prefix = String.sub x ~pos:0 ~len:prefix_len
-;;
+open! Import
 
 let chop_prefix ~prefix x =
-  if is_prefix ~prefix x then
-    let prefix_len = String.length prefix in
-    Some (String.sub x ~pos:prefix_len ~len:(String.length x - prefix_len))
+  if String.is_prefix ~prefix x then
+    Some (String.drop_prefix x (String.length prefix))
   else
     None
 ;;

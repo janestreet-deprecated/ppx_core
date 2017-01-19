@@ -1,5 +1,7 @@
 (** AST traversal classes *)
 
+open! Import
+
 (** To use these classes, inherit from them and override the methods corresponding to the
     types from [Parsetree] you want to process. For instance to collect all the string
     constants in a structure:

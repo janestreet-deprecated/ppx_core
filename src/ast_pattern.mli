@@ -1,5 +1,7 @@
 (** First class AST patterns *)
 
+open! Import
+
 (** PPX rewriters often need to recognize fragments the OCaml AST, for instance to parse
     the payload of an attribute/expression. You can do that with a pattern matching and
     manual error reporting when the input is not what you expect but this has proven to
@@ -132,6 +134,10 @@ val ( >>| ) : ('a, 'b, 'c) t -> ('d -> 'b) -> ('a, 'd, 'c) t
 val map0 : ('a,               'b, 'c) t -> f:               'v  -> ('a, 'v -> 'b, 'c) t
 val map1 : ('a, 'v1 ->        'b, 'c) t -> f:('v1 ->        'v) -> ('a, 'v -> 'b, 'c) t
 val map2 : ('a, 'v1 -> 'v2 -> 'b, 'c) t -> f:('v1 -> 'v2 -> 'v) -> ('a, 'v -> 'b, 'c) t
+
+val map0' : ('a,               'b, 'c) t -> f:(Location.t ->               'v) -> ('a, 'v -> 'b, 'c) t
+val map1' : ('a, 'v1 ->        'b, 'c) t -> f:(Location.t -> 'v1 ->        'v) -> ('a, 'v -> 'b, 'c) t
+val map2' : ('a, 'v1 -> 'v2 -> 'b, 'c) t -> f:(Location.t -> 'v1 -> 'v2 -> 'v) -> ('a, 'v -> 'b, 'c) t
 
 val ( ^:: ) : ('a, 'b, 'c) t -> ('a list, 'c, 'd) t -> ('a list, 'b, 'd) t
 val many : ('a, 'b -> 'b, 'c) t -> ('a list, 'c list -> 'd, 'd) t

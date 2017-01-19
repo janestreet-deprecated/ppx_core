@@ -1,8 +1,5 @@
-open StdLabels
-open MoreLabels
+open! Import
 open Common
-
-module String_map = Map.Make(String)
 
 type (_, _) equality = Eq : ('a, 'a) equality | Ne : (_, _) equality
 
@@ -62,7 +59,7 @@ module Context = struct
     | Pattern          , Pattern          -> Eq
     | Signature_item   , Signature_item   -> Eq
     | Structure_item   , Structure_item   -> Eq
-    | _ -> assert (T a <> T b); Ne
+    | _ -> assert (Polymorphic_compare.(<>) (T a) (T b)); Ne
 
   let get_extension : type a. a t -> a -> (extension * attributes) option = fun t x ->
     match t, x with

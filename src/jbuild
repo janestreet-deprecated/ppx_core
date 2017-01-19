@@ -1,6 +1,6 @@
 (library
  ((name ppx_core)
-  (libraries (compiler-libs.common))
+  (libraries (compiler-libs.common base stdio))
   (public_name ppx_core)
   (preprocess no_preprocessing)
   (js_of_ocaml ())

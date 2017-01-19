@@ -1,10 +1,12 @@
-open StdLabels
+open! Import
 open Parsetree
 
 module Default = struct
   module Located = struct
 
     type 'a t = 'a Location.loc
+
+    let loc (x : _ t) = x.loc
 
     open Location
 
@@ -31,7 +33,7 @@ module Default = struct
     failwith "Ppx_core.Std.Ast_builder.nonrec_type_declaration: don't use this function"
   ;;
 
-  let eint ~loc t = pexp_constant ~loc (Pconst_integer (string_of_int t, None))
+  let eint ~loc t = pexp_constant ~loc (Pconst_integer (Int.to_string  t, None))
   let echar ~loc t = pexp_constant ~loc (Pconst_char t)
   let estring ~loc t = pexp_constant ~loc (Pconst_string (t, None))
   let efloat ~loc t = pexp_constant ~loc (Pconst_float (t, None))
@@ -39,7 +41,7 @@ module Default = struct
   let eint64 ~loc t = pexp_constant ~loc (Pconst_integer (Int64.to_string t, Some 'L'))
   let enativeint ~loc t = pexp_constant ~loc (Pconst_integer (Nativeint.to_string t, Some 'n'))
 
-  let pint ~loc t = ppat_constant ~loc (Pconst_integer (string_of_int t, None))
+  let pint ~loc t = ppat_constant ~loc (Pconst_integer (Int.to_string t, None))
   let pchar ~loc t = ppat_constant ~loc (Pconst_char t)
   let pstring ~loc t = ppat_constant ~loc (Pconst_string (t, None))
   let pfloat ~loc t = ppat_constant ~loc (Pconst_float (t, None))
@@ -47,8 +49,8 @@ module Default = struct
   let pint64 ~loc t = ppat_constant ~loc (Pconst_integer (Int64.to_string t, Some 'L'))
   let pnativeint ~loc t = ppat_constant ~loc (Pconst_integer (Nativeint.to_string t, Some 'n'))
 
-  let ebool ~loc t = pexp_construct ~loc (Located.lident ~loc (string_of_bool t)) None
-  let pbool ~loc t = ppat_construct ~loc (Located.lident ~loc (string_of_bool t)) None
+  let ebool ~loc t = pexp_construct ~loc (Located.lident ~loc (Bool.to_string  t)) None
+  let pbool ~loc t = ppat_construct ~loc (Located.lident ~loc (Bool.to_string t)) None
 
   let evar ~loc v = pexp_ident ~loc (Located.mk ~loc (Longident.parse v))
   let pvar ~loc v = ppat_var ~loc (Located.mk ~loc v)
@@ -180,10 +182,12 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
   module Located = struct
     include Default.Located
 
-    let mk              x = mk              ~loc x
-    let of_ident        x = of_ident        ~loc x
-    let lident          x = lident          ~loc x
-    let lident_of_ident x = lident_of_ident ~loc x
+    let loc _ = Loc.loc
+
+    let mk              x = mk              ~loc:Loc.loc x
+    let of_ident        x = of_ident        ~loc:Loc.loc x
+    let lident          x = lident          ~loc:Loc.loc x
+    let lident_of_ident x = lident_of_ident ~loc:Loc.loc x
   end
 
   let pexp_tuple l = Default.pexp_tuple ~loc l

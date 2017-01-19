@@ -4,6 +4,7 @@
     attributes to the user as soon as possible so that no mistyped attribute get silently
     ignored. *)
 
+open! Import
 open Parsetree
 
 type ('context, 'payload) t

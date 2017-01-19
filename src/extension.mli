@@ -1,3 +1,4 @@
+open! Import
 open Parsetree
 
 type (_, _) equality = Eq : ('a, 'a) equality | Ne : (_, _) equality

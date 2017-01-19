@@ -1,3 +1,4 @@
+open! Import
 open Parsetree
 
 module type Loc = sig
@@ -85,6 +86,8 @@ module type Located = sig
   type 'a with_loc
 
   type 'a t = 'a Location.loc
+
+  val loc : _ t -> Location.t
 
   val mk : ('a -> 'a t) with_loc
 

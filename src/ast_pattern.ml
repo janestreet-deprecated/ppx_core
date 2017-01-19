@@ -1,4 +1,4 @@
-open StdLabels
+open! Import
 
 include Ast_pattern0
 
@@ -22,7 +22,7 @@ let __' = T (fun ctx loc x k -> incr_matched ctx; k { Location. loc; txt = x })
 
 let drop = T (fun ctx _loc _ k -> incr_matched ctx; k)
 
-let cst ~to_string ?(equal=(=)) v = T (fun ctx loc x k ->
+let cst ~to_string ?(equal=Polymorphic_compare.equal) v = T (fun ctx loc x k ->
   if equal x v then begin
     incr_matched ctx;
     k
@@ -30,14 +30,14 @@ let cst ~to_string ?(equal=(=)) v = T (fun ctx loc x k ->
     fail loc (to_string v)
 );;
 
-let int       v = cst ~to_string:string_of_int         v
+let int       v = cst ~to_string:Int.to_string         v
 let char      v = cst ~to_string:(Printf.sprintf "%C") v
 let string    v = cst ~to_string:(Printf.sprintf "%S") v
-let float     v = cst ~to_string:string_of_float       v
+let float     v = cst ~to_string:Float.to_string       v
 let int32     v = cst ~to_string:Int32.to_string       v
 let int64     v = cst ~to_string:Int64.to_string       v
 let nativeint v = cst ~to_string:Nativeint.to_string   v
-let bool      v = cst ~to_string:string_of_bool        v
+let bool      v = cst ~to_string:Bool.to_string        v
 
 let pair (T f1) (T f2) = T (fun ctx loc (x1, x2) k ->
   let k = f1 ctx loc x1 k in
@@ -84,6 +84,10 @@ let map0 (T func) ~f = T (fun ctx loc x k -> func ctx loc x (           k  f    
 let map1 (T func) ~f = T (fun ctx loc x k -> func ctx loc x (fun a   -> k (f a  )))
 let map2 (T func) ~f = T (fun ctx loc x k -> func ctx loc x (fun a b -> k (f a b)))
 
+let map0' (T func) ~f = T (fun ctx loc x k -> func ctx loc x (           k (f loc    )))
+let map1' (T func) ~f = T (fun ctx loc x k -> func ctx loc x (fun a   -> k (f loc a  )))
+let map2' (T func) ~f = T (fun ctx loc x k -> func ctx loc x (fun a b -> k (f loc a b)))
+
 let alt_option some none =
   alt (map1 some ~f:(fun x -> Some x)) (map0 none ~f:None)
 
@@ -111,7 +115,7 @@ let pchar      t = ppat_constant (pconst_char   t     )
 let pstring    t = ppat_constant (pconst_string t drop)
 let pfloat     t = ppat_constant (pconst_float  t drop)
 
-let int'       (T f) = T (fun ctx loc x k -> f ctx loc (int_of_string       x) k)
+let int'       (T f) = T (fun ctx loc x k -> f ctx loc (Int.of_string       x) k)
 let int32'     (T f) = T (fun ctx loc x k -> f ctx loc (Int32.of_string     x) k)
 let int64'     (T f) = T (fun ctx loc x k -> f ctx loc (Int64.of_string     x) k)
 let nativeint' (T f) = T (fun ctx loc x k -> f ctx loc (Nativeint.of_string x) k)
