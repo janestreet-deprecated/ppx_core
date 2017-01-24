@@ -5,7 +5,6 @@
     ignored. *)
 
 open! Import
-open Parsetree
 
 type ('context, 'payload) t
 (** Type of declared attribute.
@@ -152,7 +151,7 @@ module Floating : sig
   val declare
     :  string
     -> 'a Context.t
-    -> (Parsetree.payload, 'b, 'c) Ast_pattern.t
+    -> (payload, 'b, 'c) Ast_pattern.t
     -> 'b
     -> ('a, 'c) t
 
@@ -189,8 +188,8 @@ val mark_as_handled_manually : attribute -> unit
 (** Return the list of attributes that have been dropped so far: attributes that haven't
     been marked and are not present in the given AST. This is used to debug extensions
     that drop attributes. *)
-val dropped_so_far_structure : structure -> string Location.loc list
-val dropped_so_far_signature : signature -> string Location.loc list
+val dropped_so_far_structure : structure -> string Loc.t list
+val dropped_so_far_signature : signature -> string Loc.t list
 
 val reset_checks :  unit -> unit
 

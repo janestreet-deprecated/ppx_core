@@ -1,5 +1,4 @@
 open! Import
-open Parsetree
 
 type (_, _) equality = Eq : ('a, 'a) equality | Ne : (_, _) equality
 
@@ -77,14 +76,14 @@ module For_context : sig
     :  'a t list
     -> loc:Location.t
     -> path:string
-    -> Parsetree.extension
+    -> extension
     -> 'a option
 
   val convert_inline
     :  'a t list
     -> loc:Location.t
     -> path:string
-    -> Parsetree.extension
+    -> extension
     -> 'a list option
 end
 

@@ -1,5 +1,7 @@
 (executables
- ((names (gen gen_ast_pattern gen_ast_builder))
-  (libraries (compiler-libs.common
-              compiler-libs.bytecomp))
-  (preprocess metaquot)))
+ ((names (gen_ast_pattern gen_ast_builder))
+  (libraries (ppx_ast
+              compiler-libs.common
+              compiler-libs.bytecomp
+              ppx_traverse_builtins))
+  (preprocess no_preprocessing)))

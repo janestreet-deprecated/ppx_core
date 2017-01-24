@@ -1,5 +1,4 @@
 open! Import
-open Parsetree
 open Common
 
 module E  = Extension

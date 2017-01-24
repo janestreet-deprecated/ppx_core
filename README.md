@@ -16,3 +16,9 @@ When used in combination with
   extension points
 - checks for unused attributes (they are otherwise silently dropped by
   the compiler)
+
+Ast version
+-----------
+
+Ppx\_core uses the specific version of the OCaml Abstract Syntax Tree
+as defined by [Ppx\_ast](https://github.com/janestreet/ppx_ast).

@@ -1,5 +1,4 @@
 open! Import
-open Parsetree
 
 
 (** Return the path used as root in a file *)

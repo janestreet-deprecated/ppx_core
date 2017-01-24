@@ -1,25 +1,18 @@
 open! Import
-open Parsetree
 
 module Default = struct
   module Located = struct
 
-    type 'a t = 'a Location.loc
+    type 'a t = 'a Loc.t
 
     let loc (x : _ t) = x.loc
-
-    open Location
 
     let mk ~loc x = { loc; txt = x }
 
     let map f t = { t with txt = f t.txt }
     let map_lident x = map (fun x -> Longident.Lident x) x
 
-    let of_ident ~loc id = mk ~loc (Ident.name id)
-
     let lident ~loc x = mk ~loc (Longident.parse x)
-
-    let lident_of_ident ~loc id = lident ~loc (Ident.name id)
   end
 
   include Ast_builder_generated.M
@@ -30,7 +23,7 @@ module Default = struct
 
   let nonrec_type_declaration ~loc:_ ~name:_ ~params:_ ~cstrs:_ ~kind:_ ~private_:_
         ~manifest:_ =
-    failwith "Ppx_core.Std.Ast_builder.nonrec_type_declaration: don't use this function"
+    failwith "Ppx_core.Ast_builder.nonrec_type_declaration: don't use this function"
   ;;
 
   let eint ~loc t = pexp_constant ~loc (Pconst_integer (Int.to_string  t, None))
@@ -137,7 +130,7 @@ module Default = struct
     | Ldot (path, n) -> pexp_ident ~loc { txt = Ldot (path, f n); loc }
     | Lapply _ -> Location.raise_errorf ~loc "unexpected applicative functor type"
 
-  let type_constr_conv ~loc:apply_loc { Location.loc; txt = longident } ~f args =
+  let type_constr_conv ~loc:apply_loc { Loc.loc; txt = longident } ~f args =
     match (longident : Longident.t) with
     | Lident _
     | Ldot ((Lident _ | Ldot _), _)
@@ -184,10 +177,8 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
 
     let loc _ = Loc.loc
 
-    let mk              x = mk              ~loc:Loc.loc x
-    let of_ident        x = of_ident        ~loc:Loc.loc x
-    let lident          x = lident          ~loc:Loc.loc x
-    let lident_of_ident x = lident_of_ident ~loc:Loc.loc x
+    let mk     x = mk     ~loc:Loc.loc x
+    let lident x = lident ~loc:Loc.loc x
   end
 
   let pexp_tuple l = Default.pexp_tuple ~loc l

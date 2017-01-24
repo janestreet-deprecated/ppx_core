@@ -1,5 +1,4 @@
 open! Import
-open Parsetree
 
 module type Loc = sig
   val loc : Location.t
@@ -56,7 +55,7 @@ module type Additional_helpers = sig
       otherwise. *)
 
   val nonrec_type_declaration :
-    (name:string Location.loc
+    (name:string Loc.t
      -> params:(core_type * Asttypes.variance) list
      -> cstrs:(core_type * core_type * Location.t) list
      -> kind:type_kind
@@ -77,15 +76,15 @@ module type Additional_helpers = sig
       the compiler from allocating useless closures, and almost always what is needed,
       since type constructors are always applied. *)
   val unapplied_type_constr_conv :
-    (Longident.t Location.loc -> f:(string -> string) -> expression) with_loc
+    (Longident.t Loc.t -> f:(string -> string) -> expression) with_loc
   val type_constr_conv :
-    (Longident.t Location.loc -> f:(string -> string) -> expression list -> expression) with_loc
+    (Longident.t Loc.t -> f:(string -> string) -> expression list -> expression) with_loc
 end
 
 module type Located = sig
   type 'a with_loc
 
-  type 'a t = 'a Location.loc
+  type 'a t = 'a Loc.t
 
   val loc : _ t -> Location.t
 
@@ -94,11 +93,7 @@ module type Located = sig
   val map        : ('a -> 'b) -> 'a t -> 'b t
   val map_lident : string t -> Longident.t t
 
-  val of_ident : (Ident.t -> string t) with_loc
-
   val lident : (string -> Longident.t t) with_loc
-
-  val lident_of_ident : (Ident.t -> Longident.t t) with_loc
 end
 
 type 'a without_location = 'a

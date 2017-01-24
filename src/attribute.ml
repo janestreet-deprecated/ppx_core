@@ -1,6 +1,4 @@
 open! Import
-open Asttypes
-open Parsetree
 
 let poly_equal a b =
   let module Poly = struct
@@ -82,7 +80,7 @@ module Context = struct
     | Psig_extension (e, l) -> (e, l)
     | _ -> failwith "Attribute.Context.get_psig_extension"
 
-  let get_rtag : Parsetree.row_field -> _ = function
+  let get_rtag : row_field -> _ = function
     | Rtag (lbl, attrs, can_be_constant, params_opts) ->
       (lbl, attrs, can_be_constant, params_opts)
     | Rinherit _ -> failwith "Attribute.Context.get_rgag"
@@ -249,7 +247,7 @@ type packed_context =
 type ('a, 'b) t =
   { name    : string
   ; context : 'a Context.t
-  ; payload : (Parsetree.payload, 'b) Ast_pattern.Packed.t
+  ; payload : (payload, 'b) Ast_pattern.Packed.t
   }
 
 type packed = T : (_, _) t -> packed
@@ -382,7 +380,7 @@ module Floating = struct
   type ('a, 'b) t =
     { name    : string
     ; context : 'a Context.t
-    ; payload : (Parsetree.payload, 'b) Ast_pattern.Packed.t
+    ; payload : (payload, 'b) Ast_pattern.Packed.t
     }
 
   let name t = t.name
@@ -423,7 +421,7 @@ let check_unused = object(self)
 
   method! attribute (name, _) =
     Location.raise_errorf ~loc:name.loc
-      "attribute not expected here, Ppx_core.Std.Attribute needs updating!"
+      "attribute not expected here, Ppx_core.Attribute needs updating!"
 
   method private check_node : type a. a Context.t -> a -> a = fun context node ->
     let attrs = Context.get_attributes context node in

@@ -1,6 +1,4 @@
 open! Import
-open Asttypes
-open Parsetree
 
 val lident : string -> Longident.t
 
@@ -24,7 +22,7 @@ val string_of_core_type : core_type -> string
 val assert_no_attributes : attributes -> unit
 val assert_no_attributes_in : Ast_traverse.iter
 
-val get_type_param_name : (core_type * variance) -> string Location.loc
+val get_type_param_name : (core_type * variance) -> string Loc.t
 (** [get_tparam_id tp] @return the string identifier associated with [tp] if it is a type
     parameter. *)
 
@@ -50,3 +48,7 @@ val loc_of_attribute : attribute -> Location.t
 
 (** convert multi-arg function applications into a cascade of 1-arg applications *)
 val curry_applications : expression -> expression
+
+(** Encode a warning message into an 'ocaml.ppwarning' attribute which can be inserted in
+    a generated Parsetree.  The compiler will be responsible for reporting the warning. *)
+val attribute_of_warning : Location.t -> string -> attribute

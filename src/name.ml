@@ -238,7 +238,7 @@ module Registrar = struct
              others pp_text last current_context)
   ;;
 
-  let raise_errorf t context ?white_list fmt (name : string Location.loc) =
+  let raise_errorf t context ?white_list fmt (name : string Loc.t) =
     Printf.ksprintf (fun msg ->
       match spellcheck t context name.txt ?white_list with
       | None ->

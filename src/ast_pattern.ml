@@ -18,7 +18,7 @@ end
 
 let __ = T (fun ctx _loc x k -> incr_matched ctx; k x)
 
-let __' = T (fun ctx loc x k -> incr_matched ctx; k { Location. loc; txt = x })
+let __' = T (fun ctx loc x k -> incr_matched ctx; k { loc; txt = x })
 
 let drop = T (fun ctx _loc _ k -> incr_matched ctx; k)
 
@@ -38,6 +38,55 @@ let int32     v = cst ~to_string:Int32.to_string       v
 let int64     v = cst ~to_string:Int64.to_string       v
 let nativeint v = cst ~to_string:Nativeint.to_string   v
 let bool      v = cst ~to_string:Bool.to_string        v
+
+let false_ =
+  T (fun ctx loc x k ->
+    match x with
+    | false -> ctx.matched <- ctx.matched + 1; k
+    | _     -> fail loc "false")
+;;
+
+let true_ =
+  T (fun ctx loc x k ->
+    match x with
+    | true -> ctx.matched <- ctx.matched + 1; k
+    | _    -> fail loc "true")
+;;
+
+let nil =
+  T (fun ctx loc x k ->
+    match x with
+    | [] -> ctx.matched <- ctx.matched + 1; k
+    | _  -> fail loc "[]")
+;;
+
+let ( ^:: ) (T f0) (T f1) =
+  T (fun ctx loc x k ->
+    match x with
+    | x0::x1 ->
+      ctx.matched <- ctx.matched + 1;
+      let k = f0 ctx loc x0 k in
+      let k = f1 ctx loc x1 k in
+      k
+    | _ -> fail loc "::")
+;;
+
+let none =
+  T (fun ctx loc x k ->
+    match x with
+    | None -> ctx.matched <- ctx.matched + 1; k
+    | _    -> fail loc "None")
+;;
+
+let some (T f0) =
+  T (fun ctx loc x k ->
+    match x with
+    | Some x0 ->
+      ctx.matched <- ctx.matched + 1;
+      let k = f0 ctx loc x0 k in
+      k
+    | _ -> fail loc "Some")
+;;
 
 let pair (T f1) (T f2) = T (fun ctx loc (x1, x2) k ->
   let k = f1 ctx loc x1 k in
@@ -95,7 +144,7 @@ let many (T f) = T (fun ctx loc l k ->
   k (List.map l ~f:(fun x -> f ctx loc x (fun x -> x))))
 ;;
 
-let loc (T f) = T (fun ctx _loc (x : _ Location.loc) k ->
+let loc (T f) = T (fun ctx _loc (x : _ Loc.t) k ->
   f ctx x.loc x.txt k)
 ;;
 
@@ -104,8 +153,6 @@ let pack2 t = map t ~f:(fun f x y -> f (x, y))
 let pack3 t = map t ~f:(fun f x y z -> f (x, y, z))
 
 include Ast_pattern_generated
-
-let ( ^:: ) = cons
 
 let echar      t = pexp_constant (pconst_char   t     )
 let estring    t = pexp_constant (pconst_string t drop)
@@ -139,7 +186,7 @@ let single_expr_payload t = pstr (pstr_eval t nil ^:: nil)
 
 let no_label t = (cst Asttypes.Nolabel ~to_string:(fun _ -> "Nolabel")) ** t
 
-let attribute (T f1) (T f2) = T (fun ctx loc ((name : _ Location.loc), payload) k ->
+let attribute (T f1) (T f2) = T (fun ctx loc ((name : _ Loc.t), payload) k ->
   let k = f1 ctx name.loc name.txt k in
   let k = f2 ctx loc payload k in
   k

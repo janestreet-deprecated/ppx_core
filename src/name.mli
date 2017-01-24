@@ -45,7 +45,7 @@ module Registrar : sig
     -> 'context
     -> ?white_list:string list
     -> (string -> 'a, unit, string, 'c) format4
-    -> string Location.loc
+    -> string Loc.t
     -> 'a
 end
 

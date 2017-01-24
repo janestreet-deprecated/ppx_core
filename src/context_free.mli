@@ -1,7 +1,6 @@
 (** Context free rewriting *)
 
 open! Import
-open Parsetree
 
 (** Local rewriting rules.
 
@@ -29,7 +28,7 @@ module Rule : sig
       if it is not. *)
   val special_function
     :  string
-    -> (Parsetree.expression -> Parsetree.expression option)
+    -> (expression -> expression option)
     -> t
 
   (** The rest of this API is for rewriting rules that apply when a certain attribute is

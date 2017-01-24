@@ -27,14 +27,41 @@ open! Import
     ]}
 *)
 
-class map                     : Ast_traverse_map.t
-class iter                    : Ast_traverse_iter.t
-class ['acc] fold             : ['acc] Ast_traverse_fold.t
-class ['acc] fold_map         : ['acc] Ast_traverse_fold_map.t
-class ['ctx] map_with_context : ['ctx] Ast_traverse_map_with_context.t
-class map_with_path           : [string] map_with_context
+class map : object
+  inherit Ppx_traverse_builtins.map
+  inherit Ast.map
+end
 
-(** Turn a [map] class into an [Ast_mapper.mapper] record.
+class iter : object
+  inherit Ppx_traverse_builtins.iter
+  inherit Ast.iter
+end
 
-    The resulting mapper is "closed", i.e. functions ignore their first argument. *)
-val ast_mapper_of_map : #map -> Ast_mapper.mapper
+class ['acc] fold : object
+  inherit ['acc] Ppx_traverse_builtins.fold
+  inherit ['acc] Ast.fold
+end
+
+class ['acc] fold_map : object
+  inherit ['acc] Ppx_traverse_builtins.fold_map
+  inherit ['acc] Ast.fold_map
+end
+
+class ['ctx] map_with_context : object
+  inherit ['ctx] Ppx_traverse_builtins.map_with_context
+  inherit ['ctx] Ast.map_with_context
+end
+
+class map_with_path : [string] map_with_context
+
+class virtual ['res] lift : object
+  inherit ['res] Ppx_traverse_builtins.lift
+  inherit ['res] Ast.lift
+end
+
+class sexp_of : object
+  inherit [Sexp.t] Ppx_traverse_builtins.std_lifters
+  inherit [Sexp.t] Ast.lift
+end
+
+val sexp_of : sexp_of

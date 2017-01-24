@@ -1,6 +1,4 @@
 open! Import
-open Parsetree
-open Asttypes
 open Ast_builder.Default
 
 module Buffer = Caml.Buffer
@@ -168,3 +166,7 @@ let assert_no_attributes_in = object
 
   method! attribute a = assert_no_attributes [a]
 end
+
+let attribute_of_warning loc s =
+  ({ loc; txt = "ocaml.ppwarning" },
+   PStr ([pstr_eval ~loc (estring ~loc s) []]))

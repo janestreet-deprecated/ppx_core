@@ -4,8 +4,6 @@ open Common
 type (_, _) equality = Eq : ('a, 'a) equality | Ne : (_, _) equality
 
 module Context = struct
-  open Parsetree
-
   type 'a t =
     | Class_expr       : class_expr       t
     | Class_field      : class_field      t
@@ -107,7 +105,7 @@ module Make(Callback : sig type 'a t end) = struct
   type ('context, 'payload) t =
     { name     : string
     ; context  : 'context Context.t
-    ; payload  : (Parsetree.payload, 'payload) payload_parser
+    ; payload  : (payload, 'payload) payload_parser
     }
 
   let declare name context pattern k =
@@ -118,7 +116,7 @@ module Make(Callback : sig type 'a t end) = struct
     }
   ;;
 
-  let find ts (ext : Parsetree.extension) =
+  let find ts (ext : extension) =
     let name = fst ext in
     match List.filter ts ~f:(fun t -> Name.matches ~pattern:t.name name.txt) with
     | [] -> None
@@ -206,7 +204,7 @@ let rec filter_by_context
 ;;
 
 let fail ctx (name, _) =
-  if not (Name.Whitelisted.is_whitelisted ~kind:`Extension name.Location.txt
+  if not (Name.Whitelisted.is_whitelisted ~kind:`Extension name.txt
           || Name.Reserved_namespaces.is_in_reserved_namespaces name.txt) then
   Name.Registrar.raise_errorf registrar (Context.T ctx)
     "Extension `%s' was not translated" name
@@ -217,7 +215,7 @@ let check_unused = object
 
   method! extension (name, _) =
     Location.raise_errorf ~loc:name.loc
-      "extension not expected here, Ppx_core.Std.Extension needs updating!"
+      "extension not expected here, Ppx_core.Extension needs updating!"
 
   method! core_type_desc = function
     | Ptyp_extension ext -> fail Core_type ext

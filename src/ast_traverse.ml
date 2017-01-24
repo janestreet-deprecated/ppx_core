@@ -1,10 +1,34 @@
 open! Import
 
-class map = Ast_traverse_map.t
-class iter = Ast_traverse_iter.t
-class ['acc] fold = ['acc] Ast_traverse_fold.t
-class ['acc] fold_map = ['acc] Ast_traverse_fold_map.t
-class ['ctx] map_with_context = ['ctx] Ast_traverse_map_with_context.t
+class map = object
+  inherit Ppx_traverse_builtins.map
+  inherit Ast.map
+end
+
+class iter = object
+  inherit Ppx_traverse_builtins.iter
+  inherit Ast.iter
+end
+
+class ['acc] fold = object
+  inherit ['acc] Ppx_traverse_builtins.fold
+  inherit ['acc] Ast.fold
+end
+
+class ['acc] fold_map = object
+  inherit ['acc] Ppx_traverse_builtins.fold_map
+  inherit ['acc] Ast.fold_map
+end
+
+class ['ctx] map_with_context = object
+  inherit ['ctx] Ppx_traverse_builtins.map_with_context
+  inherit ['ctx] Ast.map_with_context
+end
+
+class virtual ['res] lift = object
+  inherit ['res] Ppx_traverse_builtins.lift
+  inherit ['res] Ast.lift
+end
 
 let enter name path = if String.is_empty path then name else path ^ "." ^ name
 
@@ -23,47 +47,34 @@ class map_with_path = object
     super#module_type_declaration (enter mtd.pmtd_name.txt path) mtd
 end
 
-let ast_mapper_of_map (map : #map) : Ast_mapper.mapper =
-  let open Ast_mapper in
-  let mk f = fun (_ : Ast_mapper.mapper) -> f in
-  { attribute               = mk map#attribute
-  ; attributes              = mk map#attributes
-  ; case                    = mk map#case
-  ; cases                   = mk (map#list map#case)
-  ; class_declaration       = mk map#class_declaration
-  ; class_description       = mk map#class_description
-  ; class_expr              = mk map#class_expr
-  ; class_field             = mk map#class_field
-  ; class_signature         = mk map#class_signature
-  ; class_structure         = mk map#class_structure
-  ; class_type              = mk map#class_type
-  ; class_type_declaration  = mk map#class_type_declaration
-  ; class_type_field        = mk map#class_type_field
-  ; constructor_declaration = mk map#constructor_declaration
-  ; expr                    = mk map#expression
-  ; extension               = mk map#extension
-  ; extension_constructor   = mk map#extension_constructor
-  ; include_declaration     = mk map#include_declaration
-  ; include_description     = mk map#include_description
-  ; label_declaration       = mk map#label_declaration
-  ; location                = mk map#location
-  ; module_binding          = mk map#module_binding
-  ; module_declaration      = mk map#module_declaration
-  ; module_expr             = mk map#module_expr
-  ; module_type             = mk map#module_type
-  ; module_type_declaration = mk map#module_type_declaration
-  ; open_description        = mk map#open_description
-  ; pat                     = mk map#pattern
-  ; payload                 = mk map#payload
-  ; signature               = mk map#signature
-  ; signature_item          = mk map#signature_item
-  ; structure               = mk map#structure
-  ; structure_item          = mk map#structure_item
-  ; typ                     = mk map#core_type
-  ; type_declaration        = mk map#type_declaration
-  ; type_extension          = mk map#type_extension
-  ; type_kind               = mk map#type_kind
-  ; value_binding           = mk map#value_binding
-  ; value_description       = mk map#value_description
-  ; with_constraint         = mk map#with_constraint
-  }
+class sexp_of = object
+  inherit [Sexp.t] Ast.lift
+
+  method int       = sexp_of_int
+  method string    = sexp_of_string
+  method bool      = sexp_of_bool
+  method char      = sexp_of_char
+  method float     = sexp_of_float
+  method int32     = sexp_of_int32
+  method int64     = sexp_of_int64
+  method nativeint = sexp_of_nativeint
+  method unit      = sexp_of_unit
+  method option    = sexp_of_option
+  method list      = sexp_of_list
+  method array : 'a. ('a -> Sexp.t) -> 'a array -> Sexp.t = sexp_of_array
+
+  method other : 'a. 'a -> Sexp.t = fun _ -> Sexp.Atom "_"
+
+  method record fields =
+    List (List.map fields ~f:(fun (label, sexp) ->
+      Sexp.List [Atom label; sexp]))
+
+  method constr tag args =
+    match args with
+    | [] -> Atom tag
+    | _  -> List (Atom tag :: args)
+
+  method tuple l = List l
+end
+
+let sexp_of = new sexp_of

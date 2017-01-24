@@ -12,15 +12,15 @@ open! Import
 *)
 val match_structure
   :  pos:Lexing.position
-  -> expected:Parsetree.structure
-  -> mismatch_handler:(Location.t -> Parsetree.structure -> unit)
-  -> Parsetree.structure
+  -> expected:structure
+  -> mismatch_handler:(Location.t -> structure -> unit)
+  -> structure
   -> unit
 
 (** Same for signatures *)
 val match_signature
   :  pos:Lexing.position
-  -> expected:Parsetree.signature
-  -> mismatch_handler:(Location.t -> Parsetree.signature -> unit)
-  -> Parsetree.signature
+  -> expected:signature
+  -> mismatch_handler:(Location.t -> signature -> unit)
+  -> signature
   -> unit

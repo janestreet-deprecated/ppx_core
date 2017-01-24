@@ -34,7 +34,7 @@ open! Import
                                              ; _ } ])
                  ; _ } ] ->
           (name, e)
-        | _ -> Location.raise_errorf ...
+        | _ -> Location.raisef ...
     ]}
 
     This is quite cumbersome, and this is still not right: this function drops all
@@ -67,8 +67,6 @@ open! Import
     which means that it matches values of type [payload] and captures a string and
     expression from it. The two captured elements comes from the use of [__].
 *)
-
-open Parsetree
 
 (** Type of a pattern:
 
@@ -111,7 +109,7 @@ val __ : ('a, 'a -> 'b, 'b) t
     In the latter case you should use the [pexp_loc] field of the captured expression
     instead.
 *)
-val __' : ('a, 'a Location.loc -> 'b, 'b) t
+val __' : ('a, 'a Loc.t -> 'b, 'b) t
 
 (** [alt] stands for `alternatives'. It matches either the first pattern or the second
     one. *)
@@ -139,6 +137,7 @@ val map0' : ('a,               'b, 'c) t -> f:(Location.t ->               'v) -
 val map1' : ('a, 'v1 ->        'b, 'c) t -> f:(Location.t -> 'v1 ->        'v) -> ('a, 'v -> 'b, 'c) t
 val map2' : ('a, 'v1 -> 'v2 -> 'b, 'c) t -> f:(Location.t -> 'v1 -> 'v2 -> 'v) -> ('a, 'v -> 'b, 'c) t
 
+val nil : (_ list, 'a, 'a) t
 val ( ^:: ) : ('a, 'b, 'c) t -> ('a list, 'c, 'd) t -> ('a list, 'b, 'd) t
 val many : ('a, 'b -> 'b, 'c) t -> ('a list, 'c list -> 'd, 'd) t
 
@@ -157,6 +156,9 @@ val cst
   -> 'a
   -> ('a, 'b, 'b) t
 
+val none : (_ option, 'a, 'a) t
+val some : ('a, 'b, 'c) t -> ('a option, 'b, 'c) t
+
 val pair : ('a1, 'b, 'c) t -> ('a2, 'c, 'd) t -> ('a1 * 'a2, 'b, 'd) t
 val ( ** ) : ('a1, 'b, 'c) t -> ('a2, 'c, 'd) t -> ('a1 * 'a2, 'b, 'd) t
 val triple
@@ -165,7 +167,7 @@ val triple
   -> ('a3, 'd, 'e) t
   -> ('a1 * 'a2 * 'a3, 'b, 'e) t
 
-val loc : ('a, 'b, 'c) t -> ('a Location.loc, 'b, 'c) t
+val loc : ('a, 'b, 'c) t -> ('a Loc.t, 'b, 'c) t
 
 val pack0 : ('a, 'b, 'c) t -> ('a, unit -> 'b, 'c) t
 val pack2 : ('a, 'b -> 'c -> 'd, 'e) t -> ('a, 'b * 'c -> 'd, 'e) t
@@ -189,6 +191,9 @@ val pack3 : ('a, 'b -> 'c -> 'd -> 'e, 'f) t -> ('a, 'b * 'c * 'd -> 'e, 'f) t
     ]}
 *)
 include module type of Ast_pattern_generated
+
+val true_  : (bool, 'a, 'a) t
+val false_ : (bool, 'a, 'a) t
 
 val eint       : (int       , 'a, 'b) t -> (expression, 'a, 'b) t
 val echar      : (char      , 'a, 'b) t -> (expression, 'a, 'b) t

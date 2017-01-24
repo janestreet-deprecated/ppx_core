@@ -1,5 +1,4 @@
 open! Import
-open Parsetree
 
 module Format = Caml.Format
 
@@ -31,8 +30,8 @@ module Make(M : sig
 
     val parse : Lexing.lexbuf -> t list
 
-    val pp   : Format.formatter -> t -> unit
-    val dump : Format.formatter -> t -> unit
+    val pp : Format.formatter -> t -> unit
+    val to_sexp : t -> Sexp.t
   end) =
 struct
   let extract_prefix ~pos l =
@@ -74,7 +73,7 @@ struct
           let dump fn ast =
             Out_channel.with_file fn ~f:(fun oc ->
               let ppf = Format.formatter_of_out_channel oc in
-              M.dump ppf ast;
+              Sexp.pp_hum ppf (M.to_sexp ast);
               Format.pp_print_flush ppf ())
           in
           dump fn1 generated;
@@ -146,8 +145,8 @@ module Str = Make(struct
     end
 
     let parse = Parse.implementation
-    let pp = Pprintast.default#structure_item
-    let dump ppf x = Printast.implementation ppf [x]
+    let pp = Pprintast.structure_item
+    let to_sexp = Ast_traverse.sexp_of#structure_item
   end)
 
 module Sig = Make(struct
@@ -160,8 +159,8 @@ module Sig = Make(struct
     end
 
     let parse = Parse.interface
-    let pp = Pprintast.default#signature_item
-    let dump ppf x = Printast.interface ppf [x]
+    let pp = Pprintast.signature_item
+    let to_sexp = Ast_traverse.sexp_of#signature_item
   end)
 
 let match_structure = Str.do_match
