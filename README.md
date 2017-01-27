@@ -22,3 +22,16 @@ Ast version
 
 Ppx\_core uses the specific version of the OCaml Abstract Syntax Tree
 as defined by [Ppx\_ast](https://github.com/janestreet/ppx_ast).
+
+Compatibility
+-------------
+
+If you want to write code that works with several versions of
+Ppx\_core using different AST versions, you can use the versionned
+alternatives for `Ast_builder` and `Ast_pattern`. For instance:
+
+```ocaml
+open Ppx_core
+module Ast_builder = Ast_builder_403
+module Ast_pattern = Ast_pattern_403
+```

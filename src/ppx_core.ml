@@ -56,6 +56,10 @@ module Light = struct
   (* We don't include these in [Std] as these are likely to break external code *)
   module Location  = Location
   module Longident = Longident
+
+  (* The API of these modules won't change when we upgrade the AST defined by ppx_ast. *)
+  module Ast_builder_403 = Ast_builder
+  module Ast_pattern_403 = Ast_pattern
 end
 include Light
 
