@@ -76,6 +76,7 @@ module Whitelisted = struct
       ; "ocaml.specialise"
       ; "ocaml.specialised"
       ; "ocaml.unroll"
+      ; "immediate"
       ]
 
   (* White list the following extensions.

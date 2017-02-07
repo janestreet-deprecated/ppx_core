@@ -82,7 +82,8 @@ let type_is_recursive short_circuit type_names = object(self)
     | Some true  -> Exn.raise_without_backtrace Stop
     | None ->
       match ctyp.ptyp_desc with
-      | Ptyp_constr ({ txt = Longident.Lident id; _ }, _) when List.mem type_names id ->
+      | Ptyp_constr ({ txt = Longident.Lident id; _ }, _)
+        when List.mem ~equal:String.equal type_names id ->
         raise Stop
       | _ -> super#core_type ctyp
 
