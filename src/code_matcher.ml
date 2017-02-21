@@ -1,3 +1,4 @@
+(*$ #use "cinaps_helpers" $*)
 open! Import
 
 module Format = Caml.Format
@@ -135,6 +136,7 @@ struct
     match_loop ~end_pos ~mismatch_handler ~expected ~source
 end
 
+(*$*)
 module Str = Make(struct
     type t = structure_item
     let get_loc x = x.pstr_loc
@@ -148,7 +150,7 @@ module Str = Make(struct
     let pp = Pprintast.structure_item
     let to_sexp = Ast_traverse.sexp_of#structure_item
   end)
-
+(*$ str_to_sig _last_text_block *)
 module Sig = Make(struct
     type t = signature_item
     let get_loc x = x.psig_loc
@@ -162,6 +164,7 @@ module Sig = Make(struct
     let pp = Pprintast.signature_item
     let to_sexp = Ast_traverse.sexp_of#signature_item
   end)
+(*$*)
 
 let match_structure = Str.do_match
 let match_signature = Sig.do_match

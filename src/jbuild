@@ -23,3 +23,10 @@
   (deps (gen/gen_ast_builder.exe))
   (action  (run ./gen/gen_ast_builder.exe ${findlib:ppx_ast:ast.ml}))))
 
+(alias
+ ((name DEFAULT)
+  (deps (cinaps_helpers
+         (glob_files *.ml)
+         (glob_files *.mli)))
+  (action "${bin:cinaps} *.ml *.mli")))
+

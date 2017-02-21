@@ -131,6 +131,11 @@ module Reserved_namespaces = struct
 
 end
 
+let comes_from_merlin name =
+  match get_outer_namespace name with
+  | Some "merlin" -> true
+  | _ -> false
+
 module Registrar = struct
   type element =
     { fully_qualified_name : string

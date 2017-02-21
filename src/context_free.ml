@@ -1,3 +1,4 @@
+(*$ #use "cinaps_helpers" $*)
 open! Import
 open Common
 
@@ -522,6 +523,7 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
       in
       { pcsig_self; pcsig_fields }
 
+    (*$*)
     method! structure path st =
       let rec with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code =
         let item = super#structure_item path item in
@@ -594,6 +596,7 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
       in
       loop st ~in_generated_code:false
 
+    (*$ str_to_sig _last_text_block *)
     method! signature path sg =
       let rec with_extra_items item ~extra_items ~expect_items ~rest ~in_generated_code =
         let item = super#signature_item path item in
@@ -665,4 +668,6 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
             item :: rest
       in
       loop sg ~in_generated_code:false
+
+    (*$*)
   end

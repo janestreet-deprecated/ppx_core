@@ -530,7 +530,8 @@ end
 
 let check_all_seen () =
   let fail name loc =
-    Location.raise_errorf ~loc "Attribute `%s' was silently dropped" name
+    if not (Name.comes_from_merlin name) then
+      Location.raise_errorf ~loc "Attribute `%s' was silently dropped" name
   in
   Phys_table.iter fail not_seen
 ;;

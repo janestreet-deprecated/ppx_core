@@ -12,7 +12,7 @@ val combinator_type_of_type_declaration
   -> core_type
 
 val gen_symbol : ?prefix : string -> unit -> string
-(** [gensym ?prefix ()] generates a fresh variable name with [prefix].
+(** [gen_symbol ?prefix ()] generates a fresh variable name with [prefix].
 
     @param prefix default = "_x"
 *)

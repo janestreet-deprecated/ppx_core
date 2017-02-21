@@ -156,8 +156,10 @@ let curry_applications expr =
   | _ -> expr
 ;;
 
-let assert_no_attributes : attributes -> unit = function
+let rec assert_no_attributes = function
   | [] -> ()
+  | (name, _) :: rest when Name.comes_from_merlin name.Location.txt ->
+    assert_no_attributes rest
   | attr :: _ ->
     let loc = loc_of_attribute attr in
     Location.raise_errorf ~loc "Attributes not allowed here"

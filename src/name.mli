@@ -69,3 +69,5 @@ module Reserved_namespaces : sig
 
   val is_in_reserved_namespaces : string -> bool
 end
+
+val comes_from_merlin : string -> bool
