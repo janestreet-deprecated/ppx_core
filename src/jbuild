@@ -30,3 +30,5 @@
          (glob_files *.mli)))
   (action "${bin:cinaps} *.ml *.mli")))
 
+
+(jbuild_version jane_street)
