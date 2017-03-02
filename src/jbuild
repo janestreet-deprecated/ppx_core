@@ -4,13 +4,11 @@
               compiler-libs.common
               ocaml-compiler-libs.shadow
               ppx_ast
-              base
-              stdio
+              base stdio
               ppx_traverse_builtins))
   (flags (:standard -open Ocaml_shadow))
   (public_name ppx_core)
   (preprocess no_preprocessing)
-  (js_of_ocaml ())
   ))
 
 (rule
@@ -29,6 +27,5 @@
          (glob_files *.ml)
          (glob_files *.mli)))
   (action "${bin:cinaps} *.ml *.mli")))
-
 
 (jbuild_version jane_street)
