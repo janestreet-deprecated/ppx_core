@@ -26,6 +26,6 @@
   (deps (cinaps_helpers
          (glob_files *.ml)
          (glob_files *.mli)))
-  (action "${bin:cinaps} *.ml *.mli")))
+  (action (bash "${bin:cinaps} *.ml *.mli"))))
 
 (jbuild_version jane_street)
