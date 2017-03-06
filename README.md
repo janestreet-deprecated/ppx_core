@@ -1,5 +1,7 @@
-Ppx\_core - a PPX standard library
-==================================
+---
+title: ppx_core - a PPX standard library
+parent: ../README.md
+---
 
 Ppx\_core is a standard library for OCaml AST transformers. It
 contains:

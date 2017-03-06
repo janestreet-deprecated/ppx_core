@@ -10,7 +10,7 @@ build: [
 ]
 depends: [
   "base"
-  "jbuilder"
+  "jbuilder"              {build}
   "ocaml-compiler-libs"
   "ppx_ast"
   "ppx_traverse_builtins"
