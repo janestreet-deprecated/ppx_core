@@ -28,4 +28,11 @@
          (glob_files *.mli)))
   (action (bash "${bin:cinaps} *.ml *.mli"))))
 
+;; This is to make the code compatible with different versions of
+;; OCaml
+(rule
+ ((targets (compiler_specifics.ml))
+  (deps    (gen-compiler_specifics))
+  (action  (run ${OCAML} ${<} ${ocaml_version} ${@}))))
+
 (jbuild_version 1)
