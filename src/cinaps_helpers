@@ -1,7 +1,7 @@
 (* -*- tuareg -*- *)
 
 let str_to_sig =
-  let re = Str.regexp {|\(_?[sS]tructure\|implementation\|str_\|_str\|\b\(st\|Str\)\b\)|} in
+  let re = Str.regexp {|\(_?[sS]tructure\|impl\(ementation\)?\|str_\|_str\|\b\(st\|Str\)\b\)|} in
   let map s =
     match Str.matched_string s with
     | "st"             -> "sg"
@@ -13,6 +13,7 @@ let str_to_sig =
     | "str_"           -> "sig_"
     | "_str"           -> "_sig"
     | "implementation" -> "interface"
+    | "impl"           -> "intf"
     | _                -> assert false
   in
   fun s ->
