@@ -158,6 +158,74 @@ module Default = struct
 
   let unapplied_type_constr_conv ~loc longident ~f =
     type_constr_conv longident ~loc ~f []
+
+
+  let eta_reduce =
+    let rec gather_params acc expr =
+      match expr with
+      | { pexp_desc =
+            Pexp_fun (label, None (* no default expression *), subpat, body)
+        ; pexp_attributes = []
+        ; pexp_loc = _
+        } ->
+        begin match subpat with
+        | { ppat_desc = Ppat_var name; ppat_attributes = []; ppat_loc = _ } ->
+          gather_params ((label, name, None) :: acc) body
+        | { ppat_desc = Ppat_constraint ({ ppat_desc = Ppat_var name
+                                         ; ppat_attributes = []
+                                         ; ppat_loc = _ }, ty)
+          ; ppat_attributes = []; ppat_loc = _ } ->
+          (* We reduce [fun (x : ty) -> f x] by rewriting it [(f : ty -> _)]. *)
+          gather_params ((label, name, Some ty) :: acc) body
+        | _ -> List.rev acc, expr
+        end
+      | _ -> List.rev acc, expr
+    in
+    let annotate ~loc expr params =
+      if List.exists params ~f:(fun (_, _, ty) -> Option.is_some ty)
+      then
+        let ty =
+          List.fold_right params ~init:(ptyp_any ~loc)
+            ~f:(fun (param_label, param, ty_opt) acc ->
+              let loc = param.loc in
+              let ty =
+                match ty_opt with
+                | None -> ptyp_any ~loc
+                | Some ty -> ty
+              in
+              ptyp_arrow ~loc param_label ty acc)
+        in
+        pexp_constraint ~loc expr ty
+      else expr
+    in
+    fun expr ->
+      match gather_params [] expr with
+      (* We expects the arguments to be in a single Pexp_apply, because that's what
+         generated code should generate everywhere (see pexp_apply above) to avoid
+         doing partial applications. *)
+      | params,
+        { pexp_desc = Pexp_apply (({ pexp_desc = Pexp_ident _; _ } as f_ident), args)
+        ; pexp_attributes = []; pexp_loc = _ } ->
+        begin
+          match
+            List.for_all2 args params ~f:(fun (arg_label, arg) (param_label, param, _) ->
+              Poly.(=) (arg_label : arg_label) param_label
+              && match arg with
+              | { pexp_desc = Pexp_ident { txt = Lident name'; _ }; pexp_attributes = []; pexp_loc = _ }
+                -> String.(=) name' param.txt
+              | _ -> false)
+          with
+          | Unequal_lengths | Ok false -> None
+          | Ok true -> Some (annotate ~loc:expr.pexp_loc f_ident params)
+        end
+      | _ -> None
+  ;;
+
+  let eta_reduce_if_possible expr = Option.value (eta_reduce expr) ~default:expr
+  let eta_reduce_if_possible_and_nonrec expr ~rec_flag =
+    match rec_flag with
+    | Recursive -> expr
+    | Nonrecursive -> eta_reduce_if_possible expr
 end
 
 module type Loc = Ast_builder_intf.Loc
@@ -225,6 +293,9 @@ module Make(Loc : sig val loc : Location.t end) : S = struct
 
   let type_constr_conv ident ~f args = Default.type_constr_conv ~loc ident ~f args
   let unapplied_type_constr_conv ident ~f = Default.unapplied_type_constr_conv ~loc ident ~f
+  let eta_reduce = Default.eta_reduce
+  let eta_reduce_if_possible = Default.eta_reduce_if_possible
+  let eta_reduce_if_possible_and_nonrec = Default.eta_reduce_if_possible_and_nonrec
 end
 
 let make loc = (module Make(struct let loc = loc end) : S)

@@ -103,42 +103,68 @@ module Make(Callback : sig type 'a t end) = struct
       -> ('a, 'c) payload_parser
 
   type ('context, 'payload) t =
-    { name     : string
+    { name     : Name.Pattern.t
     ; context  : 'context Context.t
     ; payload  : (payload, 'payload) payload_parser
+    ; with_arg : bool
     }
 
-  let declare name context pattern k =
+  let declare ~with_arg name context pattern k =
     Name.Registrar.register ~kind:`Extension registrar (Context.T context) name;
-    { name
+    { name = Name.Pattern.make name
     ; context
     ; payload = Payload_parser (pattern, k)
+    ; with_arg
     }
   ;;
 
   let find ts (ext : extension) =
-    let name = fst ext in
-    match List.filter ts ~f:(fun t -> Name.matches ~pattern:t.name name.txt) with
+    let { txt = name; loc } = fst ext in
+    let name, arg = Name.split_path name in
+    match List.filter ts ~f:(fun t -> Name.Pattern.matches t.name name) with
     | [] -> None
-    | [t] -> Some t
-    | l ->
-      Location.raise_errorf ~loc:name.loc
+    | _ :: _ :: _ as l ->
+      Location.raise_errorf ~loc
         "Multiple match for extensions: %s"
-        (String.concat ~sep:", " (List.map l ~f:(fun t -> t.name)))
+        (String.concat ~sep:", " (List.map l ~f:(fun t -> Name.Pattern.name t.name)))
+    | [t] ->
+      if not t.with_arg && Option.is_some arg then
+        Location.raise_errorf ~loc
+          "Extension %s doesn't expect a path argument"
+          name;
+      let arg =
+        Option.map arg ~f:(fun s ->
+          let shift = String.length name + 1 in
+          let start = loc.loc_start in
+          { txt = Longident.parse s
+          ; loc = { loc with loc_start =
+                               { start with pos_cnum = start.pos_cnum + shift }
+                  }
+          })
+      in
+      Some (t, arg)
   ;;
 end
 
 module Expert = struct
-  include Make(struct type 'a t = 'a end)
+  include Make(struct type 'a t = arg:Longident.t Loc.t option -> 'a end)
+
+  let declare_with_path_arg name ctx patt f =
+    declare ~with_arg:true name ctx patt f
+
+  let declare name ctx patt f =
+    declare ~with_arg:false name ctx patt (fun ~arg:_ -> f)
 
   let convert ts ~loc ext =
     match find ts ext with
     | None -> None
-    | Some { payload = Payload_parser (pattern, f); _ } ->
-      Some (Ast_pattern.parse pattern loc (snd ext) f)
+    | Some ({ payload = Payload_parser (pattern, f); _ }, arg) ->
+      Some (Ast_pattern.parse pattern loc (snd ext) (f ~arg))
 end
 
-module M = Make(struct type 'a t = loc:Location.t -> path:string -> 'a end)
+module M = Make(struct
+    type 'a t = loc:Location.t -> path:string -> arg:Longident.t Loc.t option -> 'a
+  end)
 
 type 'a expander_result =
   | Simple of 'a
@@ -150,8 +176,8 @@ module For_context = struct
   let convert ts ~loc ~path ext =
     match M.find ts ext with
     | None -> None
-    | Some { payload = M.Payload_parser (pattern, f); _  } ->
-      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path) with
+    | Some ({ payload = M.Payload_parser (pattern, f); _  }, arg) ->
+      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path ~arg) with
       | Simple x -> Some x
       | Inline _ -> failwith "Extension.convert"
   ;;
@@ -159,8 +185,8 @@ module For_context = struct
   let convert_inline ts ~loc ~path ext =
     match M.find ts ext with
     | None -> None
-    | Some { payload = M.Payload_parser (pattern, f); _  } ->
-      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path) with
+    | Some ({ payload = M.Payload_parser (pattern, f); _  }, arg) ->
+      match Ast_pattern.parse pattern loc (snd ext) (f ~loc ~path ~arg) with
       | Simple x -> Some [x]
       | Inline l -> Some l
   ;;
@@ -170,7 +196,13 @@ type t = T : _ For_context.t -> t
 
 let declare name context pattern k =
   let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Simple x) in
-  T (M.declare name context pattern k)
+  T (M.declare ~with_arg:false name context pattern
+       (fun ~loc ~path ~arg:_ -> k ~loc ~path))
+;;
+
+let declare_with_path_arg name context pattern k =
+  let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Simple x) in
+  T (M.declare ~with_arg:true  name context pattern k)
 ;;
 
 let check_context_for_inline : type a. func:string -> a Context.t -> unit =
@@ -189,7 +221,14 @@ let check_context_for_inline : type a. func:string -> a Context.t -> unit =
 let declare_inline name context pattern k =
   check_context_for_inline context ~func:"Extension.declare_inline";
   let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Inline x) in
-  T (M.declare name context pattern k)
+  T (M.declare ~with_arg:false name context pattern
+       (fun ~loc ~path ~arg:_ -> k ~loc ~path))
+;;
+
+let declare_inline_with_path_arg name context pattern k =
+  check_context_for_inline context ~func:"Extension.declare_inline_with_path_arg";
+  let pattern = Ast_pattern.map_result pattern ~f:(fun x -> Inline x) in
+  T (M.declare ~with_arg:true name context pattern k)
 ;;
 
 let rec filter_by_context

@@ -93,6 +93,10 @@ end
     "foo.bar.default" will match exactly these attribute names: "default", "bar.default"
     and "foo.bar.default".
 
+    Additionnaly it is possible to prevent a suffix to be shortened by prefixing it with
+    '@'. So for instance an attribute declared with name "foo.@bar.default" will match
+    exactly these attribute names: "bar.default" and "foo.bar.default".
+
     When matching against a list of attributes on an item, if several matches are
     possible, the longest one is used. For instance using the attribute "foo.default"
     declared in the previous example, on this code it will match the [@foo.default 0]

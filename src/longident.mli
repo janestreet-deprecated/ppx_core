@@ -12,3 +12,4 @@ include Comparable.S with type t := t
 val flatten_exn : t -> string list
 val last_exn : t -> string
 val parse : string -> t
+val name : t -> string

@@ -2,43 +2,76 @@ open! Import
 
 module Format = Caml.Format
 
-(* set of matches for "foo.bar.blah":
-   - "foo.bar.blah"
-   -     "bar.blah"
-   -         "blah"
-*)
-let matches ~pattern matched =
-  String.equal pattern matched || (
-    let len_pattern = String.length pattern in
-    let len_matched = String.length matched in
-    let start = len_pattern - len_matched in
-    start > 0 && Char.equal pattern.[start - 1] '.' &&
-    (
-      let i = ref 0 in
-      while !i < len_matched &&
-            Char.equal
-              (String.unsafe_get matched !i)
-              (String.unsafe_get pattern (start + !i))
-      do
-        i := !i + 1
-      done;
-      !i = len_matched
-    )
-  )
-
 let fold_dot_suffixes name ~init:acc ~f =
-  let rec loop pos acc =
-    if pos >= 0 then
-      match String.rindex_from name pos '.' with
-      | None -> f name acc
-      | Some i ->
-        let sub_name = String.sub name ~pos:(i + 1) ~len:(String.length name - (i + 1)) in
-        loop (i - 1) (f sub_name acc)
-    else
-      acc
+  let rec collapse_after_at = function
+    | [] -> []
+    | part :: parts ->
+      if not (String.is_empty part) && Char.equal part.[0] '@' then
+        [String.concat (String.drop_prefix part 1 :: parts) ~sep:"."]
+      else
+        part :: collapse_after_at parts
   in
-  loop (String.length name - 1) acc
+  let rec loop acc parts =
+    match parts with
+    | [] -> acc
+    | part :: parts ->
+      loop (f (String.concat (part :: parts) ~sep:".") acc) parts
+  in
+  String.split name ~on:'.'
+  |> collapse_after_at
+  |> loop acc
 ;;
+
+let dot_suffixes name =
+  fold_dot_suffixes name ~init:[] ~f:(fun x acc -> x :: acc)
+
+let split_path =
+  let rec loop s i =
+    if i = String.length s then
+      (s, None)
+    else
+      match s.[i] with
+      | '.' -> after_dot s (i + 1)
+      | _ -> loop s (i + 1)
+  and after_dot s i =
+    if i = String.length s then
+      (s, None)
+    else
+      match s.[i] with
+      | 'A'..'Z' ->
+        (String.prefix s (i - 1), Some (String.drop_prefix s i))
+      | '.' -> after_dot s (i + 1)
+      | _ -> loop s (i + 1)
+  in
+  fun s -> loop s 0
+
+module Pattern = struct
+  module Str = struct
+    type t = string
+    let sexp_of_t = String.sexp_of_t
+    let compare a b =
+      let d = Int.compare (String.length a) (String.length b) in
+      if d <> 0 then
+        d
+      else
+        String.compare a b
+    include (val Comparator.make ~compare ~sexp_of_t)
+  end
+
+  type t =
+    { name : string
+    ; dot_suffixes : Set.M(Str).t
+    }
+
+  let make name =
+    { name
+    ; dot_suffixes = Set.of_list (module Str) (dot_suffixes name)
+    }
+
+  let name t = t.name
+
+  let matches t matched = Set.mem t.dot_suffixes matched
+end
 
 let get_outer_namespace name =
   match String.index name '.' with

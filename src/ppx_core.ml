@@ -64,3 +64,7 @@ end
 include Light
 
 let ( ^^ ) = Caml.( ^^ )
+
+module Ppx_core_private = struct
+  module Name = Name
+end

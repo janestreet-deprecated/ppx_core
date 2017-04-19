@@ -14,14 +14,6 @@ let core_type_of_type_declaration td =
     (List.map td.ptype_params ~f:fst)
 ;;
 
-let gen_symbol_new =
-  (* We need a bit of random as ppx can be run as multiple processes *)
-  let rnd = Random.State.make_self_init () in
-  let cnt = ref 0 in
-  fun ?(prefix="_x") () ->
-    Printf.sprintf "%s__%03d_%d" prefix !cnt (Random.State.bits rnd)
-;;
-
 let gen_symbol_old =
   let cnt = ref 0 in
   fun ?(prefix = "_x") () ->
@@ -30,10 +22,7 @@ let gen_symbol_old =
 ;;
 
 let gen_symbol =
-  if true then
-    gen_symbol_old
-  else
-    gen_symbol_new
+  gen_symbol_old
 ;;
 
 let name_type_params_in_td (td : type_declaration) : type_declaration =

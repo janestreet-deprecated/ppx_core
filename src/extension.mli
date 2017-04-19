@@ -53,6 +53,23 @@ val declare
   -> (loc:Location.t -> path:string -> 'a)
   -> t
 
+(** Same as [declare] except that the extension name takes an additional path
+    argument. The path is the part of the name that start with a capitalized
+    component. For instance in the following, the extension ["map"] would receive the path
+    argument [Foo.Bar]:
+
+    {[
+      let%map.Foo.Bar x = 1 in
+      ...
+    ]}
+*)
+val declare_with_path_arg
+  :  string
+  -> 'context Context.t
+  -> (payload, 'a, 'context) Ast_pattern.t
+  -> (loc:Location.t -> path:string -> arg:Longident.t Asttypes.loc option -> 'a)
+  -> t
+
 (** Inline the result of the expansion into its parent. Only works for these contexts:
 
     - [class_field]
@@ -65,6 +82,13 @@ val declare_inline
   -> 'context Context.t
   -> (payload, 'a, 'context list) Ast_pattern.t
   -> (loc:Location.t -> path:string -> 'a)
+  -> t
+
+val declare_inline_with_path_arg
+  :  string
+  -> 'context Context.t
+  -> (payload, 'a, 'context list) Ast_pattern.t
+  -> (loc:Location.t -> path:string -> arg:Longident.t Asttypes.loc option -> 'a)
   -> t
 
 module For_context : sig
@@ -107,6 +131,13 @@ module Expert : sig
     -> 'context Context.t
     -> (payload, 'a, 'b) Ast_pattern.t
     -> 'a
+    -> ('context, 'b) t
+
+  val declare_with_path_arg
+    :  string
+    -> 'context Context.t
+    -> (payload, 'a, 'b) Ast_pattern.t
+    -> (arg:Longident.t Loc.t option -> 'a)
     -> ('context, 'b) t
 
   val convert : (_, 'a) t list -> loc:Location.t -> extension -> 'a option

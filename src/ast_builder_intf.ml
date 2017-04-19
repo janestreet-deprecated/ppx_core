@@ -79,6 +79,31 @@ module type Additional_helpers = sig
     (Longident.t Loc.t -> f:(string -> string) -> expression) with_loc
   val type_constr_conv :
     (Longident.t Loc.t -> f:(string -> string) -> expression list -> expression) with_loc
+
+  (** Tries to simplify [fun v1 v2 .. -> f v1 v2 ..] into [f]. Only works when [f] is a
+      path, not an arbitrary expression as that would change the meaning of the code.
+      This can be used either for cleaning up the generated code, or to reduce allocation
+      if [f] is a local variable (the compiler won't optimize the allocation of the
+      closure).
+
+      Eta-reduction can change the types/behavior in some corner cases that are unlikely
+      to show up in generated code:
+      - if [f] has optional arguments, eta-expanding [f] can drop them
+      - because labels commute, it can change the type of an expression:
+        $ let f ~x y = x + y
+          let f2 = fun x -> add x;;
+        val f  : x:int -> int -> int = <fun>
+        val f2 : int -> x:int -> int = <fun>
+        In fact, if [f] does side effects before receiving all its arguments, and if
+        the eta-expansion is partially applied, eta-reducing could change behavior.
+
+      [eta_reduce_if_possible_and_nonrec] is meant for the case where the resulting
+      expression is going to be bound in a potentially recursive let-binding, where
+      we have to keep the eta-expansion when [rec_flag] is [Recursive] to avoid
+      a compile error. *)
+  val eta_reduce : expression -> expression option
+  val eta_reduce_if_possible : expression -> expression
+  val eta_reduce_if_possible_and_nonrec : expression -> rec_flag:rec_flag -> expression
 end
 
 module type Located = sig

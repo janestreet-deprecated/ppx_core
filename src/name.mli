@@ -1,21 +1,37 @@
 open! Import
 
-(** [matches ~pattern name] returns [true] iff [name] matches [pattern].
+module Pattern : sig
+  type t
 
-    For instance, the exact set of names such that [matches ~pattern:"foo.bar.blah" name]
-    is:
-    - "foo.bar.blah"
-    -     "bar.blah"
-    -         "blah"
+  (** Uses the rules described in [Attribute] *)
+  val make : string -> t
+
+  val name : t -> string
+
+  (** [matches ~pattern name] returns [true] iff [name] matches [pattern].
+
+      For instance, the exact set of names such that
+      [matches (make "foo.bar.@blah.x") name] is:
+      - "foo.bar.blah.x"
+      -     "bar.blah.x"
+      -         "blah.x"
+  *)
+  val matches : t -> string -> bool
+end
+
+(** Split the path part of a name:
+
+    [split_path "a.b.C.D" = "a.b", Some "C.D"]
 *)
-val matches : pattern:string -> string -> bool
+val split_path : string -> string * string option
 
-(** [fold_dot_suffixes "foo.bar.blah" ~init ~f] is
-    [f "foo.bar.blah" (f "bar.blah" (f "blah" init)))]
+(** [fold_dot_suffixes "foo.@bar.blah" ~init ~f] is
+
+    {[
+      ["bar.blah"; "foo.bar.blah"]
+    ]}
 *)
-val fold_dot_suffixes : string -> init:'a -> f:(string -> 'a -> 'a) -> 'a
-
-val get_outer_namespace : string -> string option
+val dot_suffixes : string -> string list
 
 module Registrar : sig
   (** Names are organized by context. For instance contexts can be: expressions, patterns,

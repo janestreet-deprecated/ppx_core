@@ -245,14 +245,14 @@ type packed_context =
   | Floating : _ Floating_context.t -> packed_context
 
 type ('a, 'b) t =
-  { name    : string
+  { name    : Name.Pattern.t
   ; context : 'a Context.t
   ; payload : (payload, 'b) Ast_pattern.Packed.t
   }
 
 type packed = T : (_, _) t -> packed
 
-let name t = t.name
+let name t = Name.Pattern.name t.name
 let context t = t.context
 
 let registrar =
@@ -266,7 +266,7 @@ let registrar =
 
 let declare name context pattern k =
   Name.Registrar.register ~kind:`Attribute registrar (On_item context) name;
-  { name
+  { name = Name.Pattern.make name
   ; context
   ; payload = Ast_pattern.Packed.create pattern k
   }
@@ -297,7 +297,7 @@ let get_internal =
     match attributes with
     | [] -> longest_match
     | (name, _) as attr :: rest ->
-      if Name.matches ~pattern:t.name name.txt then begin
+      if Name.Pattern.matches t.name name.txt then begin
         match longest_match with
         | None -> find_best_match t rest (Some attr)
         | Some (name', _) ->
@@ -378,16 +378,19 @@ module Floating = struct
   module Context = Floating_context
 
   type ('a, 'b) t =
-    { name    : string
+    { name    : Name.Pattern.t
     ; context : 'a Context.t
     ; payload : (payload, 'b) Ast_pattern.Packed.t
     }
 
-  let name t = t.name
+  let name t = Name.Pattern.name t.name
 
   let declare name context pattern k =
     Name.Registrar.register ~kind:`Attribute registrar (Floating context) name;
-    { name; context; payload = Ast_pattern.Packed.create pattern k }
+    { name = Name.Pattern.make name
+    ; context
+    ; payload = Ast_pattern.Packed.create pattern k
+    }
   ;;
 
   let convert ts x =
@@ -397,13 +400,13 @@ module Floating = struct
       assert (List.for_all ts ~f:(fun t -> Context.equal t.context context));
       let attr = Context.get_attribute context x in
       let name = fst attr in
-      match List.filter ts ~f:(fun t -> Name.matches ~pattern:t.name name.txt) with
+      match List.filter ts ~f:(fun t -> Name.Pattern.matches t.name name.txt) with
       | [] -> None
       | [t] -> Some (convert t.payload attr)
       | l ->
         Location.raise_errorf ~loc:name.loc
           "Multiple match for floating attributes: %s"
-          (String.concat ~sep:", " (List.map l ~f:(fun t -> t.name)))
+          (String.concat ~sep:", " (List.map l ~f:(fun t -> Name.Pattern.name t.name)))
   ;;
 end
 
