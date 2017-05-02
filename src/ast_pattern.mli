@@ -78,7 +78,7 @@ open! Import
 type ('a, 'b, 'c) t = ('a, 'b, 'c) Ast_pattern0.t
 
 (** Matches a value against a pattern. *)
-val parse : ('a, 'b, 'c) t -> Location.t -> 'a -> 'b -> 'c
+val parse : ('a, 'b, 'c) t -> Location.t -> ?on_error:(unit -> 'c) -> 'a -> 'b -> 'c
 
 module Packed : sig
   type ('a, 'b, 'c) pattern = ('a, 'b, 'c) t

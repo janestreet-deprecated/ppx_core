@@ -1,7 +1,9 @@
 open! Import
 
+exception Expected of Location.t * string
+
 let fail loc expected =
-  Location.raise_errorf ~loc "%s expected" expected
+  raise (Expected (loc, expected))
 ;;
 
 type context =

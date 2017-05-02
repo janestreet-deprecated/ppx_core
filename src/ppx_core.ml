@@ -37,6 +37,7 @@ module Std = struct
   module Extension           = Extension
   module File_path           = File_path
   module Loc                 = Loc
+  module Merlin_helpers      = Merlin_helpers
   module Reserved_namespaces = Name.Reserved_namespaces
   module Spellcheck          = Spellcheck
   include Common

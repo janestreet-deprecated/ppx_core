@@ -7,7 +7,12 @@ let restore_context ctx backup = ctx.matched <- backup
 
 let incr_matched c = c.matched <- c.matched + 1
 
-let parse (T f) loc x k = f { matched = 0 } loc x k
+let parse (T f) loc ?on_error x k =
+  try f { matched = 0 } loc x k
+  with Expected (loc, expected) ->
+    match on_error with
+    | None -> Location.raise_errorf ~loc "%s expected" expected
+    | Some f -> f ()
 
 module Packed = struct
   type ('a, 'b) t = T : ('a, 'b, 'c) Ast_pattern0.t * 'b -> ('a, 'c) t
