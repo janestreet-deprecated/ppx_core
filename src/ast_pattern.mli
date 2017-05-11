@@ -218,6 +218,8 @@ val no_label : (expression, 'a, 'b) t -> (Asttypes.arg_label * expression, 'a, '
 val attribute : (string, 'a, 'b) t -> (payload, 'b, 'c) t -> (attribute, 'a, 'c) t
 val extension : (string, 'a, 'b) t -> (payload, 'b, 'c) t -> (attribute, 'a, 'c) t
 
+val elist : (expression, 'a -> 'a, 'b) t -> (expression, 'b list -> 'c, 'c) t
+
 type context
 val of_func : (context -> Location.t -> 'a -> 'b -> 'c) -> ('a, 'b, 'c) t
 val to_func : ('a, 'b, 'c) t -> (context -> Location.t -> 'a -> 'b -> 'c)

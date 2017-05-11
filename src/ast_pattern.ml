@@ -199,5 +199,28 @@ let attribute (T f1) (T f2) = T (fun ctx loc ((name : _ Loc.t), payload) k ->
 
 let extension = attribute
 
+let rec parse_elist (e : Parsetree.expression) acc =
+  Common.assert_no_attributes e.pexp_attributes;
+  match e.pexp_desc with
+  | Pexp_construct ({ txt = Lident "[]"; _ }, None) ->
+    List.rev acc
+  | Pexp_construct ({ txt = Lident "::"; _ }, Some arg) -> begin
+      Common.assert_no_attributes arg.pexp_attributes;
+      match arg.pexp_desc with
+      | Pexp_tuple [hd; tl] ->
+        parse_elist tl (hd :: acc)
+      | _ ->
+        fail arg.pexp_loc "list"
+    end
+  | _ ->
+    fail e.pexp_loc "list"
+;;
+
+let elist (T f) = T (fun ctx _loc e k ->
+  let l = parse_elist e [] in
+  incr_matched ctx;
+  k (List.map l ~f:(fun x -> f ctx x.Parsetree.pexp_loc x (fun x -> x))))
+;;
+
 let of_func f = (T f)
 let to_func (T f) = f
