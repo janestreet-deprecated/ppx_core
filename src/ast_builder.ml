@@ -198,14 +198,25 @@ module Default = struct
         pexp_constraint ~loc expr ty
       else expr
     in
+    let rec gather_args n x =
+      if n = 0 then Some (x, [])
+      else match x with
+        | { pexp_desc = Pexp_apply (body, args)
+          ; pexp_attributes = []; pexp_loc = _ } ->
+          if List.length args <= n then
+            match gather_args (n - List.length args) body with
+            | None -> None
+            | Some (body, args') ->
+              Some (body, args' @ args)
+          else
+            None
+        | _ -> None
+    in
     fun expr ->
-      match gather_params [] expr with
-      (* We expects the arguments to be in a single Pexp_apply, because that's what
-         generated code should generate everywhere (see pexp_apply above) to avoid
-         doing partial applications. *)
-      | params,
-        { pexp_desc = Pexp_apply (({ pexp_desc = Pexp_ident _; _ } as f_ident), args)
-        ; pexp_attributes = []; pexp_loc = _ } ->
+      let params, body = gather_params [] expr in
+      match gather_args (List.length params) body with
+      | None -> None
+      | Some (({ pexp_desc = Pexp_ident _; _ } as f_ident), args) ->
         begin
           match
             List.for_all2 args params ~f:(fun (arg_label, arg) (param_label, param, _) ->
@@ -215,7 +226,8 @@ module Default = struct
                 -> String.(=) name' param.txt
               | _ -> false)
           with
-          | Unequal_lengths | Ok false -> None
+          | Unequal_lengths -> assert false
+          | Ok false -> None
           | Ok true -> Some (annotate ~loc:expr.pexp_loc f_ident params)
         end
       | _ -> None

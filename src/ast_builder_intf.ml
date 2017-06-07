@@ -81,7 +81,8 @@ module type Additional_helpers = sig
     (Longident.t Loc.t -> f:(string -> string) -> expression list -> expression) with_loc
 
   (** Tries to simplify [fun v1 v2 .. -> f v1 v2 ..] into [f]. Only works when [f] is a
-      path, not an arbitrary expression as that would change the meaning of the code.
+      path, not an arbitrary expression as that would change the meaning of
+      the code.
       This can be used either for cleaning up the generated code, or to reduce allocation
       if [f] is a local variable (the compiler won't optimize the allocation of the
       closure).
