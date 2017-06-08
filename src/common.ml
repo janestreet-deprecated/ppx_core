@@ -61,50 +61,40 @@ let get_type_param_name (ty, _) =
   | _ -> Location.raise_errorf ~loc "not a type parameter"
 
 
-exception Stop
-let type_is_recursive short_circuit type_names = object(self)
+exception Type_is_recursive
+
+class type_is_recursive rec_flag tds = object(self)
   inherit Ast_traverse.iter as super
 
-  method! core_type ctyp =
-    match short_circuit ctyp with
-    | Some false -> ()
-    | Some true  -> Exn.raise_without_backtrace Stop
-    | None ->
-      match ctyp.ptyp_desc with
-      | Ptyp_constr ({ txt = Longident.Lident id; _ }, _)
-        when List.mem ~equal:String.equal type_names id ->
-        raise Stop
-      | _ -> super#core_type ctyp
+  val type_names : string list = List.map tds ~f:(fun td -> td.ptype_name.txt)
+
+  method return_true () = Exn.raise_without_backtrace Type_is_recursive
+
+  method! core_type ctype =
+    match ctype.ptyp_desc with
+    | Ptyp_arrow _ -> ()
+    | Ptyp_constr ({ txt = Longident.Lident id; _ }, _)
+      when List.mem ~equal:String.equal type_names id ->
+      self#return_true ()
+    | _ -> super#core_type ctype
 
   method! constructor_declaration cd =
     (* Don't recurse through cd.pcd_res *)
     match cd.pcd_args with
     | Pcstr_tuple args -> List.iter args ~f:self#core_type
     | Pcstr_record fields -> List.iter fields ~f:self#label_declaration
+
+  method go () =
+    match rec_flag with
+    | Nonrecursive -> Nonrecursive
+    | Recursive    ->
+      match List.iter tds ~f:self#type_declaration with
+      | exception Type_is_recursive -> Recursive
+      | () -> Nonrecursive
+
 end
 
-let types_are_recursive ?(stop_on_functions = true) ?(short_circuit = fun _ -> None)
-      tds =
-  let type_names = List.map tds ~f:(fun td -> td.ptype_name.txt) in
-  let short_circuit =
-    if stop_on_functions then
-      fun ty ->
-        match ty.ptyp_desc with
-        | Ptyp_arrow _ -> Some false
-        | _ -> short_circuit ty
-    else short_circuit
-  in
-  let check = (type_is_recursive short_circuit type_names)#type_declaration in
-  try
-    List.iter tds ~f:(fun td -> check td);
-    false
-  with Stop ->
-    true
-
-let really_recursive rec_flag tds =
-  match rec_flag with
-  | Recursive    -> if types_are_recursive tds then Recursive else Nonrecursive
-  | Nonrecursive -> Nonrecursive
+let really_recursive rec_flag tds = (new type_is_recursive rec_flag tds)#go ()
 
 let rec last x l =
   match l with

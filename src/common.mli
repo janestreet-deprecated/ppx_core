@@ -26,21 +26,20 @@ val get_type_param_name : (core_type * variance) -> string Loc.t
 (** [get_tparam_id tp] @return the string identifier associated with [tp] if it is a type
     parameter. *)
 
+(** [(new type_is_recursive rec_flag tds)#go ()] returns whether [rec_flag, tds] is really
+   a recursive type. We disregard recursive occurrences appearing in arrow types. You can
+   override the search for certain type expressions by inheriting from this class. *)
+class type_is_recursive : rec_flag -> type_declaration list -> object
+    inherit Ast_traverse.iter
 
-(** Returns whether the given type declarations
-    refer to themselves.
+    val type_names : string list
 
-    [short_circuit] allows you to override the search for certain type expressions.
+    method return_true : unit -> unit
 
-    [stop_on_functions] allows to disregard the recursive occurences appearing in arrow
-    types. The default is to disregard them.
-*)
-val types_are_recursive
-  :  ?stop_on_functions:bool
-  -> ?short_circuit:(core_type -> bool option)
-  -> type_declaration list
-  -> bool
+    method go : unit -> rec_flag
+  end
 
+(** [really_recursive rec_flag tds = (new type_is_recursive rec_flag tds)#go ()] *)
 val really_recursive : rec_flag -> type_declaration list -> rec_flag
 
 val loc_of_payload   : attribute -> Location.t
