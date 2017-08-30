@@ -52,10 +52,23 @@ module Rule = struct
       }
   end
 
+  module Constant_kind = struct
+    type t = Float | Integer
+  end
+
+  module Constant = struct
+    type t =
+      { suffix : char
+      ; kind : Constant_kind.t
+      ; expand : Location.t -> string -> Parsetree.expression
+      }
+  end
+
   module Field = struct
     type 'a t =
       | Extension          : Extension.t                                            t
       | Special_function   : Special_function.t                                     t
+      | Constant           : Constant.t                                             t
       | Attr_str_type_decl : (structure_item, type_declaration) Attr_group_inline.t t
       | Attr_sig_type_decl : (signature_item, type_declaration) Attr_group_inline.t t
       | Attr_str_type_ext  : (structure_item, type_extension) Attr_inline.t         t
@@ -69,6 +82,7 @@ module Rule = struct
       match a, b with
       | Extension          , Extension          -> Eq
       | Special_function   , Special_function   -> Eq
+      | Constant           , Constant           -> Eq
       | Attr_str_type_decl , Attr_str_type_decl -> Eq
       | Attr_sig_type_decl , Attr_sig_type_decl -> Eq
       | Attr_str_type_ext  , Attr_str_type_ext  -> Eq
@@ -115,6 +129,10 @@ module Rule = struct
                          ; ident  = Longident.parse id
                          ; expand = f
                          })
+  ;;
+
+  let constant kind suffix expand =
+    T (Constant, { suffix; kind; expand })
   ;;
 
   let attr_str_type_decl attribute expand =
@@ -330,6 +348,11 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
   let special_functions =
     Rule.filter Special_function rules |> table_of_special_functions
   in
+  let constants =
+    Rule.filter Constant rules
+    |> List.map ~f:(fun (c:Rule.Constant.t) -> ((c.suffix,c.kind),c.expand))
+    |> Hashtbl.Poly.of_alist_exn
+  in
   let extensions = Rule.filter Extension rules in
   let class_expr       = E.filter_by_context EC.class_expr       extensions
   and class_field      = E.filter_by_context EC.class_field      extensions
@@ -399,6 +422,11 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
           map_node EC.expression expression (fun _ e -> e) e.pexp_loc path e
         | _ -> e
       in
+      let expand_constant kind char text =
+        match Hashtbl.find constants (char,kind) with
+        | None -> super#expression path e
+        | Some expand -> self#expression path (expand e.pexp_loc text)
+      in
       match e.pexp_desc with
       | Pexp_apply ({ pexp_desc = Pexp_ident id; _ } as func, args) -> begin
           match Hashtbl.find special_functions id.txt with
@@ -422,6 +450,8 @@ class map_top_down ?(expect_mismatch_handler=Expect_mismatch_handler.nop)
             | Some e ->
               self#expression path e
         end
+      | Pexp_constant (Pconst_integer (s, Some c)) -> expand_constant Integer c s
+      | Pexp_constant (Pconst_float   (s, Some c)) -> expand_constant Float   c s
       | _ ->
         super#expression path e
 
