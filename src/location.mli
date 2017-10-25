@@ -48,7 +48,7 @@ module Error : sig
       displayed by [report_exception]. *)
   val register_error_of_exn: (exn -> t option) -> unit
 
-  val of_exn : exn -> t option
+  val of_exn : exn -> [`Ok of t | `Already_displayed] option
 
   (** Convert an error to an extension point. The compiler recognizes this and displays
       the error properly. *)
