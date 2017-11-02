@@ -525,7 +525,8 @@ let freshen_and_collect = object
   method! attribute ((name, payload) as attr) =
     let loc = Common.loc_of_attribute attr in
     let payload = super#payload payload in
-    let key = Caml.Bytes.copy name.txt in
+    (* This code relies on phys_equal of strings. *)
+    let key = String.copy name.txt in
     let name = { name with txt = key } in
     Phys_table.add not_seen key loc;
     (name, payload)

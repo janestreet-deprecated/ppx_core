@@ -1,5 +1,6 @@
 (executables
  ((names (gen_ast_pattern gen_ast_builder))
+  (flags (:standard -safe-string))
   (libraries (ppx_ast
               compiler-libs.common
               compiler-libs.bytecomp

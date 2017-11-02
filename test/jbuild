@@ -1,5 +1,6 @@
 (library
  ((name ppx_core_test)
+  (flags (:standard -safe-string))
   (libraries (ppx_core))
   (preprocess (pps (ppx_jane ppx_driver.runner)))))
 

@@ -6,7 +6,7 @@
               ppx_ast
               base stdio
               ppx_traverse_builtins))
-  (flags (:standard -open Ocaml_shadow))
+  (flags (:standard -open Ocaml_shadow -safe-string))
   (public_name ppx_core)
   (preprocess no_preprocessing)
   ))
