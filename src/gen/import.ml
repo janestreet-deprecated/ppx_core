@@ -26,7 +26,11 @@ module List = struct
       | Some x -> x :: filter_map l ~f
 end
 
-module String = StringLabels
+module String = struct
+  include StringLabels
+
+  let lowercase_ascii = String.lowercase_ascii
+end
 module Array  = ArrayLabels
 
 let evar v = Exp.ident (Loc.lident v)
@@ -90,7 +94,7 @@ let function_name_of_id ?(prefix="") id =
   | "[]" -> "nil"
   | "true" -> "true_"
   | "false" -> "false_"
-  | s -> String.lowercase s |> map_keyword
+  | s -> String.lowercase_ascii s |> map_keyword
 ;;
 
 let fqn_longident' path s : Longident.t =
