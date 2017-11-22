@@ -1,11 +1,14 @@
+(**/**)
 include Glue
+(**/**)
 
-(* Ppx_core is our stdlib for the ppx code so we just include Base here *)
-include Base
-include Stdio
+(** Ppx_core is our stdlib for the ppx code so we just include Base here *)
 
-(* Make sure code using Ppx_core doesn't refer to compiler-libs without being explicit
-   about it *)
+include Base (* @closed *)
+include Stdio (* @closed *)
+
+(** Make sure code using Ppx_core doesn't refer to compiler-libs without being explicit
+    about it *)
 include struct
   [@@@warning "-3"]
   open Ocaml_shadow
@@ -24,7 +27,7 @@ include struct
            with module Pprintast    := Pprintast
            with module Syntaxerr    := Syntaxerr
           )
-end
+end (** @inline *)
 
 module Std = struct
   (* This module is deprecated, but we keep it for compatiblity with external code *)
@@ -43,10 +46,10 @@ module Std = struct
   include Common
 end [@@deprecated "[since 2017-01] Use Ppx_core or Ppx_core.Light instead"]
 
-(* You should open this module if you intend to use Ppx_core with a standard library that
+(** You should open this module if you intend to use Ppx_core with a standard library that
    is not Base. *)
 module Light = struct
-  (* Includes the overrides from Ppx_ast, as well as all the Ast definitions since we need
+  (** Includes the overrides from Ppx_ast, as well as all the Ast definitions since we need
      them in every single ppx *)
   include Ppx_ast
   include Ast
@@ -54,17 +57,21 @@ module Light = struct
   include Std [@@warning "-3"]
 
 
-  (* We don't include these in [Std] as these are likely to break external code *)
+  (** We don't include these in [Std] as these are likely to break external code *)
+
   module Location  = Location
   module Longident = Longident
 
-  (* The API of these modules won't change when we upgrade the AST defined by ppx_ast. *)
+  (** The API of these modules won't change when we upgrade the AST defined by ppx_ast. *)
+
   module Ast_builder_403 = Ast_builder
   module Ast_pattern_403 = Ast_pattern
 end
 include Light
 
 let ( ^^ ) = Caml.( ^^ )
+
+(**/**)
 
 module Ppx_core_private = struct
   module Name = Name
