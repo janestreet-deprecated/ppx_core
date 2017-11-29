@@ -1,3 +1,9 @@
+## v0.9.2
+
+- Do not consume attributes such as [@@deriving ...], leave them in
+  the AST instead. This is to allow them to be processed by both
+  `ppx_type_conv` and `ppx_deriving`
+
 ## 113.43.00
 
 - We currently reject code which contains attribute on constructor inside
