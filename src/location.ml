@@ -54,7 +54,7 @@ module Error = struct
 
   let register_error_of_exn = L.register_error_of_exn
 
-  let of_exn = L.error_of_exn
+  let of_exn = Compiler_specifics.error_of_exn
 
   let rec to_extension (t : t) =
     let loc = t.loc in
