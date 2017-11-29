@@ -31,6 +31,19 @@ module Rule : sig
     -> (expression -> expression option)
     -> t
 
+  (** Used for the [constant] function. *)
+  module Constant_kind : sig
+    type t = Float | Integer
+  end
+
+  (** [constant kind suffix expander] Registers an extension for transforming constants
+      literals, based on the suffix character. *)
+  val constant
+    :  Constant_kind.t
+    -> char
+    -> (Location.t -> string -> Parsetree.expression)
+    -> t
+
   (** The rest of this API is for rewriting rules that apply when a certain attribute is
       present. The API is not complete and is currently only enough to implement
       type_conv. *)
