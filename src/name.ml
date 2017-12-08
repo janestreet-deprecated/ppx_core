@@ -224,7 +224,7 @@ module Registrar = struct
       }
     in
     all.all <- fold_dot_suffixes name ~init:all.all ~f:(fun name acc ->
-      Map.add acc ~key:name ~data:t);
+      Map.set acc ~key:name ~data:t);
   ;;
 
   let spellcheck t context ?(white_list=[]) name =
