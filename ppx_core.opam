@@ -10,11 +10,11 @@ build: [
 ]
 depends: [
   "base"
-  "ocaml-compiler-libs"
   "ppx_ast"
   "ppx_traverse_builtins"
   "stdio"
   "jbuilder"              {build & >= "1.0+beta12"}
+  "ocaml-compiler-libs"   {>= "v0.10.0"}
 ]
 available: [ ocaml-version >= "4.04.1" ]
 descr: "
