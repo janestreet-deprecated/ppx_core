@@ -35,7 +35,7 @@ module Context = struct
     | Pstr_extension          : structure_item          t
     | Psig_extension          : signature_item          t
     | Rtag                    : row_field               t
-    | Object_type_field       : (string * attributes * core_type) t
+    | Object_type_field       : (string loc * attributes * core_type) t
 
   let label_declaration       = Label_declaration
   let constructor_declaration = Constructor_declaration

@@ -78,3 +78,8 @@ module Error = struct
 end
 
 exception Error of Error.t
+
+let () =
+  Caml.Printexc.register_printer (function
+    | Error e -> Some (Error.message e)
+    | _ -> None)
