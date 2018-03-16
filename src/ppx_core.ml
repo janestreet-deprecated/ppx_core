@@ -1,10 +1,13 @@
-(**/**)
-include Glue
-(**/**)
+(** This library is deprecated, use Ppxlib instead *)
+
+open Ppxlib
 
 (** Ppx_core is our stdlib for the ppx code so we just include Base here *)
 
-include Base (* @closed *)
+module Base  = Base
+module Stdio = Stdio
+
+include Base  (* @closed *)
 include Stdio (* @closed *)
 
 (** Make sure code using Ppx_core doesn't refer to compiler-libs without being explicit
@@ -41,17 +44,17 @@ module Std = struct
   module File_path           = File_path
   module Loc                 = Loc
   module Merlin_helpers      = Merlin_helpers
-  module Reserved_namespaces = Name.Reserved_namespaces
+  module Reserved_namespaces = Reserved_namespaces
   module Spellcheck          = Spellcheck
-  include Common
+  include Ppxlib_private.Common
 end [@@deprecated "[since 2017-01] Use Ppx_core or Ppx_core.Light instead"]
 
 (** You should open this module if you intend to use Ppx_core with a standard library that
-   is not Base. *)
+    is not Base. *)
 module Light = struct
-  (** Includes the overrides from Ppx_ast, as well as all the Ast definitions since we need
-     them in every single ppx *)
-  include Ppx_ast
+  (** Includes the overrides from Ppxlib_ast, as well as all the Ast definitions since we
+      need them in every single ppx *)
+  include Ppxlib_ast
   include Ast
 
   include Std [@@warning "-3"]
@@ -62,17 +65,18 @@ module Light = struct
   module Location  = Location
   module Longident = Longident
 
-  (** The API of these modules won't change when we upgrade the AST defined by ppx_ast. *)
+  (** The API of these modules won't change when we upgrade the AST defined by ppxlib_ast. *)
 
   module Ast_builder_403 = Ast_builder
   module Ast_pattern_403 = Ast_pattern
 end
 include Light
 
-let ( ^^ ) = Caml.( ^^ )
-
 (**/**)
 
 module Ppx_core_private = struct
-  module Name = Name
+  module Name = Ppxlib_private.Name
 end
+
+let (^^) = Caml.(^^)
+module Type_conv = Ppxlib.Deriving

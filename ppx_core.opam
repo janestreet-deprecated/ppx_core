@@ -9,16 +9,10 @@ build: [
   ["jbuilder" "build" "-p" name "-j" jobs]
 ]
 depends: [
-  "base"
-  "ppx_ast"
-  "ppx_traverse_builtins"
-  "stdio"
-  "jbuilder"              {build & >= "1.0+beta12"}
-  "ocaml-compiler-libs"   {>= "v0.10.0"}
+  "jbuilder" {build & >= "1.0+beta18.1"}
+  "ppxlib"   {>= "0.1.1"}
 ]
 available: [ ocaml-version >= "4.04.1" ]
 descr: "
-Standard library for ppx rewriters
-
-Part of the Jane Street's PPX rewriters collection.
+Deprecated: use ppxlib instead
 "
